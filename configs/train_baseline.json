@@ -21,5 +21,6 @@
     "val_length": 30,
     "n_time_bins": 3,
     "voxel_grid_ch_normaization": false,
-    "loss": "weighted_mse"
+    "loss": "weighted_mse",
+    "model_path": "./saved_models"
 }

@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.optim as optim
 import shutil
 from torch.utils.data import DataLoader
-from model.BaselineEyeTrackingModel import CNN_GRU
+from model.BaselineEyeTrackingModel import *
 from utils.training_utils import train_epoch, validate_epoch, top_k_checkpoints
 from utils.metrics import weighted_MSELoss
 from dataset import ThreeETplus_Eyetracking, ScaleLabel, NormalizeLabel, \
@@ -81,8 +81,7 @@ def train(model, train_loader, val_loader, criterion, optimizer, args):
             
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
-                best_model_path = os.path.join(mlflow.get_artifact_uri(), \
-                            f"model_best_ep{epoch}_val_loss_{val_loss:.4f}.pth")
+                best_model_path = os.path.join(args.model_path, f"model_best_ep{epoch}_val_loss_{val_loss:.4f}.pth")
                 torch.save(model.state_dict(), best_model_path)
                 rprint(f"[green]Saved best model to:[/green] {best_model_path}")
                 
@@ -210,7 +209,11 @@ def main(args):
         model = train(model, train_loader, val_loader, criterion, optimizer, args)
 
         # Save your model for the last epoch
-        torch.save(model.state_dict(), os.path.join(mlflow.get_artifact_uri(), f"model_last_epoch{args.num_epochs}.pth"))
+        #torch.save(model.state_dict(), os.path.join(mlflow.get_artifact_uri(), f"model_last_epoch{args.num_epochs}.pth"))
+        final_model_path = os.path.join(args.model_path, f"model_last_epoch{args.num_epochs}.pth")
+        torch.save(model.state_dict(), final_model_path)
+        rprint(f"[green]Final model saved at:[/green] {final_model_path}")
+
 
 
 
@@ -219,6 +222,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # training management arguments     
     parser.add_argument("--mlflow_path", type=str, help="path to MLflow tracking server")
+    parser.add_argument("--model_path", type=str, help="Path to save trained models")
     parser.add_argument("--experiment_name", type=str, help="name of the experiment")
     parser.add_argument("--run_name", type=str, help="name of the run")
     
