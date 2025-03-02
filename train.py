@@ -225,6 +225,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_path", type=str, help="Path to save trained models")
     parser.add_argument("--experiment_name", type=str, help="name of the experiment")
     parser.add_argument("--run_name", type=str, help="name of the run")
+    parser.add_argument("--architecture", type=str, help="change model to train manuallymanually")
     
     # a config file 
     parser.add_argument("--config_file", type=str, default=None, help="path to JSON configuration file")
