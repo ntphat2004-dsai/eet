@@ -92,14 +92,14 @@ class BiGRU_AttentionModel(nn.Module):
         self.fc = nn.Linear(2 * self.num_gru_units, 2)
 
     def forward(self, x):
-        # x có shape: (B, T, C, H, W)
-        B, T, C, H, W = x.size()
+        # x có shape: (B, T, C, H, W)   
+        batch_size, seq_len, channels, height, width = x.shape
         # Ghép batch và time để xử lý từng frame riêng biệt: (B*T, C, H, W)
-        x = x.view(B * T, C, H, W)
+        x = x.view(batch_size * seq_len, channels, height, width)
         # Trích xuất đặc trưng từ từng frame
         features = self.feature_extractor(x)  # (B*T, feature_dim)
         # Xếp lại thành chuỗi: (B, T, feature_dim)
-        features = features.view(B, T, -1)
+        features = features.view(batch_size, seq_len, -1)
         
         # Xử lý chuỗi đặc trưng qua BiGRU
         gru_out, _ = self.bi_gru(features)  # (B, T, 2*num_gru_units)
