@@ -40,80 +40,58 @@ class CNN_GRU(nn.Module):
         # output is of shape (batch_size, seq_len, 2)
         return x
 
-# Module trích xuất đặc trưng cho từng frame
-class FrameFeatureExtractor(nn.Module):
-    def __init__(self, channels, height, width):
-        super(FrameFeatureExtractor, self).__init__()
-        self.conv_block = nn.Sequential(
-            nn.Conv2d(channels, 32, kernel_size=3, padding='same'),
-            nn.ReLU(),
-            nn.BatchNorm2d(32),
-            nn.MaxPool2d(2),
-            nn.Conv2d(32, 64, kernel_size=3, padding='same'),
-            nn.ReLU(),
-            nn.BatchNorm2d(64),
-            nn.MaxPool2d(2)
-        )
-        # Sau 2 lần MaxPool, chiều cao và chiều rộng giảm xuống còn 1/4
-        self.feature_dim = 64 * (height // 4) * (width // 4)
 
+class SelfAttention(nn.Module):
+    def __init__(self, input_dim):
+        super(SelfAttention, self).__init__()
+        self.query = nn.Linear(input_dim, input_dim)
+        self.key = nn.Linear(input_dim, input_dim)
+        self.value = nn.Linear(input_dim, input_dim)
+        self.softmax = nn.Softmax(dim=-1)
+        
     def forward(self, x):
-        # x: (B, C, H, W)
-        out = self.conv_block(x)
-        out = out.view(out.size(0), -1)  # flatten thành (B, feature_dim)
+        # x: (batch_size, seq_len, input_dim)
+        Q = self.query(x)
+        K = self.key(x)
+        V = self.value(x)
+        # Tính attention score: (batch_size, seq_len, seq_len)
+        scores = torch.bmm(Q, K.transpose(1, 2)) / (x.size(-1) ** 0.5)
+        attn = self.softmax(scores)
+        out = torch.bmm(attn, V)
         return out
 
-# Mô hình BiGRU kết hợp Self-Attention với tham số đầu vào từ args
-class BiGRU_AttentionModel(nn.Module):
+class CNN_BiGRU_SelfAttention(nn.Module):
+    """
+    Mô hình dự đoán tâm đồng tử kết hợp CNN + BiGRU + SelfAttention.
+    """
     def __init__(self, args):
-        super(BiGRU_AttentionModel, self).__init__()
+        super().__init__()
         self.args = args
-        # Lấy các tham số từ args
-        self.n_time_bins = args.n_time_bins    # số bước thời gian (seq_len)
-        self.height = args.height              # chiều cao của frame
-        self.width = args.width                # chiều rộng của frame
-        self.channels = args.channels if hasattr(args, 'channels') else 1
-        self.num_gru_units = args.num_gru_units if hasattr(args, 'num_gru_units') else 64
-
-        # Sử dụng module FrameFeatureExtractor để trích xuất đặc trưng của từng frame
-        self.feature_extractor = FrameFeatureExtractor(self.channels, self.height, self.width)
-        self.gru_input_size = self.feature_extractor.feature_dim
-
-        # BiGRU xử lý chuỗi các đặc trưng
-        self.bi_gru = nn.GRU(input_size=self.gru_input_size, hidden_size=self.num_gru_units, 
-                             batch_first=True, bidirectional=True)
-        
-        # Lớp Self-Attention tính điểm cho mỗi bước thời gian
-        self.attention_layer = nn.Sequential(
-            nn.Linear(2 * self.num_gru_units, 1),
-            nn.Tanh()
-        )
-        # Lớp Fully-connected dự đoán tọa độ (x, y)
-        self.fc = nn.Linear(2 * self.num_gru_units, 2)
+        self.conv1 = nn.Conv2d(args.n_time_bins, 32, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1)
+        self.pool = nn.MaxPool2d(kernel_size=3, stride=2)
+        # Sử dụng GRU hai chiều (BiGRU) với hidden_size = 128 -> output có kích thước 256
+        self.bigru = nn.GRU(input_size=36192, hidden_size=128, num_layers=1, 
+                            bidirectional=True, batch_first=True)
+        # Self-Attention với input_dim = 256 (tương ứng với output của BiGRU)
+        self.self_attention = SelfAttention(input_dim=256)
+        self.fc = nn.Linear(256, 2)
 
     def forward(self, x):
-        # x có shape: (B, T, C, H, W)   
+        # x có shape: (batch_size, seq_len, channels, height, width)
         batch_size, seq_len, channels, height, width = x.shape
-        # Ghép batch và time để xử lý từng frame riêng biệt: (B*T, C, H, W)
         x = x.view(batch_size * seq_len, channels, height, width)
-        # Trích xuất đặc trưng từ từng frame
-        features = self.feature_extractor(x)  # (B*T, feature_dim)
-        # Xếp lại thành chuỗi: (B, T, feature_dim)
-        features = features.view(batch_size, seq_len, -1)
-        
-        # Xử lý chuỗi đặc trưng qua BiGRU
-        gru_out, _ = self.bi_gru(features)  # (B, T, 2*num_gru_units)
-        
-        # Tính điểm attention cho từng bước thời gian
-        attn_scores = self.attention_layer(gru_out)  # (B, T, 1)
-        attn_scores = attn_scores.squeeze(-1)         # (B, T)
-        attn_weights = F.softmax(attn_scores, dim=1)    # (B, T)
-        
-        # Tính vector context theo trọng số attention
-        attn_weights = attn_weights.unsqueeze(-1)         # (B, T, 1)
-        context = torch.sum(gru_out * attn_weights, dim=1)  # (B, 2*num_gru_units)
-        
-        # Dự đoán tọa độ (x, y)
-        output = self.fc(context)  # (B, 2)
-        return output
+        # Đảo vị trí chiều height và width nếu cần
+        x = x.permute(0, 1, 3, 2)
 
+        x = torch.relu(self.conv1(x))
+        x = torch.relu(self.conv2(x))
+        x = torch.relu(self.conv3(x))
+        x = self.pool(x)
+
+        x = x.view(batch_size, seq_len, -1)
+        x, _ = self.bigru(x)  # output có shape (batch_size, seq_len, 256)
+        x = self.self_attention(x)  # Áp dụng Self-Attention
+        x = self.fc(x)  # output cuối có shape (batch_size, seq_len, 2)
+        return x
