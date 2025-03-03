@@ -131,7 +131,7 @@ def main(args):
 
         # Define your model, optimizer, and criterion
         model = eval(args.architecture)(args).to(args.device)
-        optimizer = optim.Adam(model.parameters(), lr=args.lr)
+        optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4) # Decay learning rate
 
         if args.loss == "mse":
             criterion = nn.MSELoss()

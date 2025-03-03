@@ -62,7 +62,7 @@ class SelfAttention(nn.Module):
 
 class CNN_BiGRU_SelfAttention(nn.Module):
     """
-    Mô hình dự đoán tâm đồng tử kết hợp CNN + BiGRU + SelfAttention.
+    Mô hình dự đoán tâm đồng tử kết hợp CNN + BiGRU + SelfAttention với Dropout.
     """
     def __init__(self, args):
         super().__init__()
@@ -71,10 +71,11 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1)
         self.pool = nn.MaxPool2d(kernel_size=3, stride=2)
-        # Sử dụng GRU hai chiều (BiGRU) với hidden_size = 128 -> output có kích thước 256
+        # Thêm dropout sau pooling
+        self.dropout = nn.Dropout(p=0.5)
+        # Sử dụng BiGRU với hidden_size = 128 -> output có kích thước 256
         self.bigru = nn.GRU(input_size=36192, hidden_size=128, num_layers=1, 
                             bidirectional=True, batch_first=True)
-        # Self-Attention với input_dim = 256 (tương ứng với output của BiGRU)
         self.self_attention = SelfAttention(input_dim=256)
         self.fc = nn.Linear(256, 2)
 
@@ -89,9 +90,11 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         x = torch.relu(self.conv2(x))
         x = torch.relu(self.conv3(x))
         x = self.pool(x)
+        x = self.dropout(x)  # Áp dụng dropout sau pooling
 
         x = x.view(batch_size, seq_len, -1)
         x, _ = self.bigru(x)  # output có shape (batch_size, seq_len, 256)
-        x = self.self_attention(x)  # Áp dụng Self-Attention
+        x = self.self_attention(x)
         x = self.fc(x)  # output cuối có shape (batch_size, seq_len, 2)
         return x
+
