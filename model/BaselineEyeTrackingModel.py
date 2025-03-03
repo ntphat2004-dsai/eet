@@ -74,7 +74,7 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         # Thêm dropout sau pooling
         self.dropout = nn.Dropout(p=0.5)
         # Sử dụng BiGRU với hidden_size = 128 -> output có kích thước 256
-        self.bigru = nn.GRU(input_size=36192, hidden_size=128, num_layers=1, 
+        self.bigru = nn.GRU(input_size=72160, hidden_size=128, num_layers=1, 
                             bidirectional=True, batch_first=True)
         self.self_attention = SelfAttention(input_dim=256)
         self.fc = nn.Linear(256, 2)
