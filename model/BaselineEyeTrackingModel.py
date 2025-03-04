@@ -75,15 +75,13 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1)
         self.pool = nn.MaxPool2d(kernel_size=3, stride=2)
-        # Dropout theo kênh cho output của CNN
-        #  self.dropout2d = nn.Dropout2d(p=0.5)
         # GRU (ở đây là BiGRU) với hidden_size = 128 -> output có kích thước 256
         # Lưu ý: input_size phải khớp với số feature sau khi flatten (ở đây vẫn giả định là 72160)
-        self.bigru = nn.GRU(input_size=72160, hidden_size=128, num_layers=1, 
+        self.bigru = nn.GRU(input_size=72160*0.5, hidden_size=128, num_layers=1, 
                             bidirectional=True, batch_first=True)
         self.self_attention = SelfAttention(input_dim=256)
         # Dropout trên vector đã flatten trước khi đưa vào GRU
-        # self.dropout_flat = nn.Dropout(p=0.5)
+        
         self.fc = nn.Linear(256, 2)
 
     def forward(self, x):
@@ -97,10 +95,7 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         x = torch.relu(self.conv2(x))
         x = torch.relu(self.conv3(x))
         x = self.pool(x)
-        x = self.dropout2d(x)  # Áp dụng Dropout2d trên feature map
-        
         x = x.view(batch_size, seq_len, -1)
-        x = self.dropout_flat(x)  # Áp dụng Dropout trên vector đã flatten
         x, _ = self.bigru(x)  # output có shape (batch_size, seq_len, 256)
         x = self.self_attention(x)
         x = self.fc(x)  # output cuối có shape (batch_size, seq_len, 2)
