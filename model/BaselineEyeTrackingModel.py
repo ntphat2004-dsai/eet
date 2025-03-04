@@ -62,11 +62,7 @@ class SelfAttention(nn.Module):
 
 class CNN_BiGRU_SelfAttention(nn.Module):
     """
-    Mô hình dự đoán tâm đồng tử kết hợp CNN + BiGRU + SelfAttention với Dropout hiệu quả.
-    Các thay đổi:
-      - Sử dụng nn.Dropout2d sau pooling để dropout theo kênh trên feature map.
-      - Áp dụng dropout trên vector đã flatten trước khi đưa vào GRU.
-      - Lưu ý: Vì dropout không thay đổi shape, nên GRU vẫn cần nhận đúng kích thước đầu vào (ở đây giả sử là 72160).
+    Mô hình dự đoán tâm đồng tử kết hợp CNN + BiGRU + SelfAttention.
     """
     def __init__(self, args):
         super().__init__()
@@ -75,13 +71,11 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1)
         self.pool = nn.MaxPool2d(kernel_size=3, stride=2)
-        # GRU (ở đây là BiGRU) với hidden_size = 128 -> output có kích thước 256
-        # Lưu ý: input_size phải khớp với số feature sau khi flatten (ở đây vẫn giả định là 72160)
-        self.bigru = nn.GRU(input_size=72160*0.5, hidden_size=128, num_layers=1, 
+        # Sử dụng GRU hai chiều (BiGRU) với hidden_size = 128 -> output có kích thước 256
+        self.bigru = nn.GRU(input_size=36192, hidden_size=128, num_layers=1, 
                             bidirectional=True, batch_first=True)
+        # Self-Attention với input_dim = 256 (tương ứng với output của BiGRU)
         self.self_attention = SelfAttention(input_dim=256)
-        # Dropout trên vector đã flatten trước khi đưa vào GRU
-        
         self.fc = nn.Linear(256, 2)
 
     def forward(self, x):
@@ -95,8 +89,11 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         x = torch.relu(self.conv2(x))
         x = torch.relu(self.conv3(x))
         x = self.pool(x)
+
         x = x.view(batch_size, seq_len, -1)
         x, _ = self.bigru(x)  # output có shape (batch_size, seq_len, 256)
-        x = self.self_attention(x)
+        x = self.self_attention(x)  # Áp dụng Self-Attention
         x = self.fc(x)  # output cuối có shape (batch_size, seq_len, 2)
         return x
+    
+
