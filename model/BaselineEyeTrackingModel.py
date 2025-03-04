@@ -98,32 +98,38 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         x = self.fc(x)  # output cuối có shape (batch_size, seq_len, 2)
         print(f"\nOutput Shape {x.shape}")
         return x
-    
 
 class EfficientNetBackbone(nn.Module):
-    """
-    EfficientNetB0 làm Backbone:
-    - Sử dụng efficientnet_b0 từ torchvision với pretrained weights.
-    - Loại bỏ phần classifier và sử dụng các tầng features, sau đó dùng AdaptiveAvgPool2d và flatten để cho ra vector.
-    - Áp dụng một lớp linear để giảm số chiều từ 1280 (mặc định của EfficientNetB0) xuống feature_dim (ví dụ: 256).
-    """
-    def __init__(self, feature_dim=256, pretrained=True):
+    def __init__(self, feature_dim=256, pretrained=True, freeze=True):
         super(EfficientNetBackbone, self).__init__()
-        self.efficientnet = efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
-        # Lấy phần features của EfficientNetB0
+        # Load EfficientNetB0 với trọng số pretrained nếu có
+        weights = EfficientNet_B0_Weights.DEFAULT if pretrained else None
+        self.efficientnet = efficientnet_b0(weights=weights)
+        
+        # Lấy phần feature extractor của EfficientNet
         self.features = self.efficientnet.features
-        # Sử dụng Adaptive Pooling để cho ra kích thước cố định
+        
+        # Nếu freeze=True, đóng băng tất cả tham số của backbone
+        if freeze:
+            for param in self.features.parameters():
+                param.requires_grad = False
+        
+        # Adaptive Pooling & Flatten
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.flatten = nn.Flatten()
-        # Projection từ 1280 (số channel cuối cùng của EfficientNetB0) về feature_dim
+        
+        # Projection Layer
         self.proj = nn.Linear(1280, feature_dim)
+        self.bn = nn.BatchNorm1d(feature_dim)  # Thêm BatchNorm
+        self.act = nn.ReLU(inplace=True)       # Thêm Activation
     
     def forward(self, x):
-        # x có shape: (N, 3, H, W)
-        x = self.features(x)         # Output: (N, 1280, H', W')
-        x = self.avgpool(x)          # Output: (N, 1280, 1, 1)
-        x = self.flatten(x)          # Output: (N, 1280)
-        x = self.proj(x)             # Output: (N, feature_dim)
+        x = self.features(x)  # (N, 1280, H', W')
+        x = self.avgpool(x)   # (N, 1280, 1, 1)
+        x = self.flatten(x)   # (N, 1280)
+        x = self.proj(x)      # (N, feature_dim)
+        x = self.bn(x)        # Chuẩn hóa đặc trưng
+        x = self.act(x)       # Áp dụng activation
         return x
 
 class EfficientNetB0_BiGRU_SelfAttention(nn.Module):
