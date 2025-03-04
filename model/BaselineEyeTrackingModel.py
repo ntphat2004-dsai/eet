@@ -72,7 +72,7 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         self.conv3 = nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1)
         self.pool = nn.MaxPool2d(kernel_size=3, stride=2)
         # Sử dụng GRU hai chiều (BiGRU) với hidden_size = 128 -> output có kích thước 256
-        self.bigru = nn.GRU(input_size=36192, hidden_size=128, num_layers=1, 
+        self.bigru = nn.GRU(input_size=36192*2, hidden_size=128, num_layers=1, 
                             bidirectional=True, batch_first=True)
         # Self-Attention với input_dim = 256 (tương ứng với output của BiGRU)
         self.self_attention = SelfAttention(input_dim=256)
