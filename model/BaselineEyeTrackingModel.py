@@ -96,7 +96,7 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         x, _ = self.bigru(x)  # output có shape (batch_size, seq_len, 256)
         x = self.self_attention(x)  # Áp dụng Self-Attention
         x = self.fc(x)  # output cuối có shape (batch_size, seq_len, 2)
-        print(f"\nOutput Shape {x}")
+        print(f"\nOutput Shape {x.shape}")
         return x
     
 
