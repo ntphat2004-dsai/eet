@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.functional as F
+from torchvision.models import efficientnet_b0
 
 class CNN_GRU(nn.Module):
     """
@@ -99,5 +100,62 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         return x
     
 
-class CNN_BiGRU_FNO_SelfAttention(nn.Module):
-    pass
+class EfficientNetBackbone(nn.Module):
+    """
+    EfficientNetB0 làm Backbone:
+    - Sử dụng efficientnet_b0 từ torchvision với pretrained weights.
+    - Loại bỏ phần classifier và sử dụng các tầng features, sau đó dùng AdaptiveAvgPool2d và flatten để cho ra vector.
+    - Áp dụng một lớp linear để giảm số chiều từ 1280 (mặc định của EfficientNetB0) xuống feature_dim (ví dụ: 256).
+    """
+    def __init__(self, feature_dim=256, pretrained=True):
+        super(EfficientNetBackbone, self).__init__()
+        self.efficientnet = efficientnet_b0(pretrained=pretrained)
+        # Lấy phần features của EfficientNetB0
+        self.features = self.efficientnet.features
+        # Sử dụng Adaptive Pooling để cho ra kích thước cố định
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        self.flatten = nn.Flatten()
+        # Projection từ 1280 (số channel cuối cùng của EfficientNetB0) về feature_dim
+        self.proj = nn.Linear(1280, feature_dim)
+    
+    def forward(self, x):
+        # x có shape: (N, 3, H, W)
+        x = self.features(x)         # Output: (N, 1280, H', W')
+        x = self.avgpool(x)          # Output: (N, 1280, 1, 1)
+        x = self.flatten(x)          # Output: (N, 1280)
+        x = self.proj(x)             # Output: (N, feature_dim)
+        return x
+
+class EfficientNetB0_BiGRU_SelfAttention(nn.Module):
+    """
+    Mô hình dự đoán tâm đồng tử sử dụng EfficientNetB0 làm Backbone cho phần trích xuất đặc trưng,
+    sau đó dùng BiGRU và Self-Attention để xử lý chuỗi thời gian.
+    
+    Đầu vào: (batch_size, seq_len, channels, height, width)
+    Output: (batch_size, seq_len, 2)
+    """
+    def __init__(self, args, feature_dim=256, gru_hidden_size=128):
+        super(EfficientNetB0_BiGRU_SelfAttention, self).__init__()
+        self.args = args
+        self.backbone = EfficientNetBackbone(feature_dim=feature_dim, pretrained=True)
+        # GRU input size bằng feature_dim của backbone
+        self.bigru = nn.GRU(input_size=feature_dim, hidden_size=gru_hidden_size, 
+                            num_layers=1, bidirectional=True, batch_first=True)
+        # Self-Attention với input_dim = gru_hidden_size * 2 (do GRU là bidirectional)
+        self.self_attention = SelfAttention(input_dim=gru_hidden_size*2)
+        # Lớp fully-connected cuối cùng để dự đoán tọa độ (2 giá trị)
+        self.fc = nn.Linear(gru_hidden_size*2, 2)
+    
+    def forward(self, x):
+        # x có shape: (batch_size, seq_len, channels, height, width)
+        batch_size, seq_len, channels, height, width = x.shape
+        # Gộp batch và seq lại để xử lý từng frame qua EfficientNetB0
+        x = x.view(batch_size * seq_len, channels, height, width)
+        x = self.backbone(x)  # Output: (batch_size * seq_len, feature_dim)
+        # Chuyển về lại shape: (batch_size, seq_len, feature_dim)
+        x = x.view(batch_size, seq_len, -1)
+        x, _ = self.bigru(x)  # Output: (batch_size, seq_len, gru_hidden_size*2)
+        x = self.self_attention(x)
+        x = self.fc(x)        # Output: (batch_size, seq_len, 2)
+        return x
+
