@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.functional as F
-from torchvision.models import efficientnet_b0
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 
 class CNN_GRU(nn.Module):
     """
@@ -109,7 +109,7 @@ class EfficientNetBackbone(nn.Module):
     """
     def __init__(self, feature_dim=256, pretrained=True):
         super(EfficientNetBackbone, self).__init__()
-        self.efficientnet = efficientnet_b0(pretrained=pretrained)
+        self.efficientnet = efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
         # Lấy phần features của EfficientNetB0
         self.features = self.efficientnet.features
         # Sử dụng Adaptive Pooling để cho ra kích thước cố định
