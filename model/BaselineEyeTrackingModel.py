@@ -81,6 +81,7 @@ class CNN_BiGRU_SelfAttention(nn.Module):
     def forward(self, x):
         # x có shape: (batch_size, seq_len, channels, height, width)
         batch_size, seq_len, channels, height, width = x.shape
+        print(f"Data Shape (batch_size, seq_len, channels, height, width) -> {x.shape}")
         x = x.view(batch_size * seq_len, channels, height, width)
         # Đảo vị trí chiều height và width nếu cần
         x = x.permute(0, 1, 3, 2)
@@ -97,3 +98,4 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         return x
     
 
+class EfficientNetBx_BiGRU_
