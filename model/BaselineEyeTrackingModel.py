@@ -98,4 +98,5 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         return x
     
 
-class EfficientNetBx_BiGRU_
+class CNN_BiGRU_FNO_SelfAttention(nn.Module):
+    pass
