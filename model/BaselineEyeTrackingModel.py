@@ -81,7 +81,7 @@ class CNN_BiGRU_SelfAttention(nn.Module):
     def forward(self, x):
         # x có shape: (batch_size, seq_len, channels, height, width)
         batch_size, seq_len, channels, height, width = x.shape
-        print(f"Data Shape (batch_size, seq_len, channels, height, width) -> {x.shape}")
+        print(f"\nnData Shape (batch_size, seq_len, channels, height, width) -> {x.shape}")
         x = x.view(batch_size * seq_len, channels, height, width)
         # Đảo vị trí chiều height và width nếu cần
         x = x.permute(0, 1, 3, 2)
@@ -95,6 +95,7 @@ class CNN_BiGRU_SelfAttention(nn.Module):
         x, _ = self.bigru(x)  # output có shape (batch_size, seq_len, 256)
         x = self.self_attention(x)  # Áp dụng Self-Attention
         x = self.fc(x)  # output cuối có shape (batch_size, seq_len, 2)
+        print(f"\nOutput Shape {x}")
         return x
     
 
