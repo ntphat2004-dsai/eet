@@ -21,7 +21,19 @@ def train_epoch(model, pbar, criterion, optimizer, args, max_norm=1.0):
         targets = targets.to(args.device)
         loss = criterion(outputs, targets[:,:, :2]) 
         loss.backward()
-        utils.clip_grad_norm_(model.parameters(), max_norm) # Gradient Clipping 
+        # utils.clip_grad_norm_(model.parameters(), max_norm) # Gradient Clipping 
+        print(f"\nBefore clipping: {p.grad.abs().max().item()}")
+        # Tính norm của gradient
+        total_norm = torch.norm(torch.stack([p.grad.norm() for p in model.parameters() if p.grad is not None]))
+
+        # print(f"Gradient norm: {total_norm.item()}")  # In giá trị norm gradient
+
+        # utils.clip_grad_norm_(model.parameters(), max_norm) # Gradient Clipping 
+
+        for p in model.parameters():
+            if p.grad is not None:
+                print(f"After clipping: {p.grad.abs().max().item()}")
+
         optimizer.step()
         running_loss += loss.item()
 

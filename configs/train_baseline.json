@@ -7,7 +7,7 @@
     "architecture": "CNN_BiGRU_SelfAttention",
     "lr": 0.001,
     "num_epochs": 300,
-    "batch_size": 16,
+    "batch_size": 20,
     "spatial_factor": 0.175,
     "temporal_subsample_factor": 1,
     "val_interval": 2,
