@@ -1,8 +1,9 @@
 import torch
 import os
 from utils.metrics import p_acc, p_acc_wo_closed_eye, px_euclidean_dist
+import torch.nn.utils as utils
 
-def train_epoch(model, pbar, criterion, optimizer, args):
+def train_epoch(model, pbar, criterion, optimizer, args, max_norm=1.0):
     model.train()
     model.to(args.device)  # THÊM
     criterion = criterion.to(args.device)  # THÊM
@@ -20,6 +21,7 @@ def train_epoch(model, pbar, criterion, optimizer, args):
         targets = targets.to(args.device)
         loss = criterion(outputs, targets[:,:, :2]) 
         loss.backward()
+        utils.clip_grad_norm_(model.parameters(), max_norm) # Gradient Clipping 
         optimizer.step()
         running_loss += loss.item()
 
