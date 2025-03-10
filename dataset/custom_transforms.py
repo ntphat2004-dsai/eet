@@ -5,6 +5,7 @@ from tonic.slicers import (
 )
 from typing import Any, List, Tuple
 
+
 def custom_to_voxel_grid_numpy(events, sensor_size, n_time_bins=10):
     """Build a voxel grid with bilinear interpolation in the time domain from a set of events.
     Implements the event volume from Zhu et al. 2019, Unsupervised event-based learning of optical
@@ -327,3 +328,72 @@ class NormalizeLabel:
         labels[:, 1] = labels[:, 1] / self.pseudo_height
         return labels
 
+class EventCutout:
+    def __init__(self, cutout_width, cutout_height, sensor_size):
+        """
+        Khởi tạo phép biến đổi EventCutout.
+
+        Args:
+        - cutout_width (int): Chiều rộng của vùng cutout.
+        - cutout_height (int): Chiều cao của vùng cutout.
+        - sensor_size (tuple): (width, height) của cảm biến.
+        """
+        self.cutout_width = cutout_width
+        self.cutout_height = cutout_height
+        self.sensor_width, self.sensor_height = sensor_size
+
+    def __call__(self, events):
+        """
+        Áp dụng phép cutout cho dữ liệu sự kiện bằng cách loại bỏ các sự kiện nằm trong một vùng chữ nhật ngẫu nhiên.
+
+        Args:
+        - events (np.ndarray): Mảng sự kiện với các trường ["x", "y", "t", "p"].
+
+        Returns:
+        - np.ndarray: Mảng sự kiện sau khi đã loại bỏ các sự kiện nằm trong vùng cutout.
+        """
+        # Chọn vị trí góc trên bên trái cho vùng cutout một cách ngẫu nhiên
+        x_min = np.random.randint(0, self.sensor_width - self.cutout_width + 1)
+        y_min = np.random.randint(0, self.sensor_height - self.cutout_height + 1)
+        x_max = x_min + self.cutout_width
+        y_max = y_min + self.cutout_height
+
+        # Tạo mask để loại bỏ các sự kiện nằm trong vùng cutout
+        mask = (events["x"] < x_min) | (events["x"] >= x_max) | (events["y"] < y_min) | (events["y"] >= y_max)
+        return events[mask]
+
+class SpatialShift:
+    def __init__(self, max_shift_x, max_shift_y, sensor_size):
+        """
+        Initialize the transformation.
+
+        Args:
+        - max_shift_x (int): Maximum shift along x-axis.
+        - max_shift_y (int): Maximum shift along y-axis.
+        - sensor_size (tuple): (width, height) of the sensor.
+        """
+        self.max_shift_x = max_shift_x
+        self.max_shift_y = max_shift_y
+        self.sensor_width, self.sensor_height = sensor_size
+
+    def __call__(self, events):
+        """
+        Apply a random spatial shift to event data.
+
+        Args:
+        - events (np.ndarray): Array of events with fields ["x", "y", "t", "p"].
+
+        Returns:
+        - np.ndarray: Transformed event data.
+        """
+        shift_x = np.random.randint(-self.max_shift_x, self.max_shift_x + 1)
+        shift_y = np.random.randint(-self.max_shift_y, self.max_shift_y + 1)
+
+        events["x"] += shift_x
+        events["y"] += shift_y
+
+        # Clip to ensure events remain within sensor boundaries
+        events["x"] = np.clip(events["x"], 0, self.sensor_width - 1)
+        events["y"] = np.clip(events["y"], 0, self.sensor_height - 1)
+
+        return events
