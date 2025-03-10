@@ -146,32 +146,27 @@ def main(args):
             NormalizeLabel(pseudo_width=640 * factor, pseudo_height=480 * factor)
         ])
 
-        # Event transformation: Downsample -> SpatialShift -> EventCutout
-        event_transform = transforms.Compose([
+        # Define data augmentation only for training data
+        train_transform = transforms.Compose([
             transforms.Downsample(spatial_factor=factor),
-            SpatialShift(
-                max_shift_x=10, 
-                max_shift_y=10, 
-                sensor_size=(int(640 * factor), int(480 * factor))
-            ),
-            EventCutout(
-                cutout_width=30, 
-                cutout_height=30, 
-                sensor_size=(int(640 * factor), int(480 * factor))
-            )
+            SpatialShift(max_shift=10),  # Dịch chuyển ngẫu nhiên tối đa 10 pixel
+            EventCutout(cutout_size=(20, 20)),  # Cắt ngẫu nhiên một vùng 20x20
         ])
+
+        # No augmentation for validation data
+        val_transform = transforms.Downsample(spatial_factor=factor)
 
         # Load dataset: 3ET+ Eyetracking, áp dụng event_transform và label_transform
         train_data_orig = ThreeETplus_Eyetracking(
             save_to=args.data_dir, 
             split="train", 
-            transform=event_transform,
+            transform=train_transform,
             target_transform=label_transform
         )
         val_data_orig = ThreeETplus_Eyetracking(
             save_to=args.data_dir, 
             split="val", 
-            transform=event_transform,
+            transform=val_transform,
             target_transform=label_transform
         )
 
