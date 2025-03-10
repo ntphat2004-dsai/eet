@@ -3,7 +3,7 @@ import os
 from utils.metrics import p_acc, p_acc_wo_closed_eye, px_euclidean_dist
 import torch.nn.utils as utils
 
-def train_epoch(model, pbar, criterion, optimizer, args, max_norm=1.0):
+def train_epoch(model, pbar, criterion, optimizer, args):
     model.train()
     model.to(args.device)  # THÊM
     criterion = criterion.to(args.device)  # THÊM
@@ -21,13 +21,17 @@ def train_epoch(model, pbar, criterion, optimizer, args, max_norm=1.0):
         targets = targets.to(args.device)
         loss = criterion(outputs, targets[:,:, :2]) 
         loss.backward()
-        # utils.clip_grad_norm_(model.parameters(), max_norm) # Gradient Clipping 
-        # Tính norm của gradient
+        
+        # Tính norm trước khi clipping
         total_norm_before = torch.norm(torch.stack([p.grad.norm() for p in model.parameters() if p.grad is not None]))
-        print(f"\n--- Gradient norm Before Clipping: {total_norm_before.item()} ---")  # In giá trị norm gradient
-        utils.clip_grad_norm_(model.parameters(), max_norm) # Gradient Clipping
+        
+        # Clipping
+        utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
+        # Tính norm sau khi clipping
         total_norm_after = torch.norm(torch.stack([p.grad.norm() for p in model.parameters() if p.grad is not None]))
-        print(f"\n---Gradient norm After Clipping: {total_norm_after.item()} ---")  # In giá trị norm gradient
+
+        print(f"Before Clipping: {total_norm_before:.4f} | After Clipping: {total_norm_after:.4f}")
 
         optimizer.step()
         running_loss += loss.item()
