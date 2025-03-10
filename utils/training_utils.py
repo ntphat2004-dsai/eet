@@ -24,11 +24,9 @@ def train_epoch(model, pbar, criterion, optimizer, args, max_norm=1.0):
         # utils.clip_grad_norm_(model.parameters(), max_norm) # Gradient Clipping 
         # Tính norm của gradient
         total_norm = torch.norm(torch.stack([p.grad.norm() for p in model.parameters() if p.grad is not None]))
-        print(f"\n--- Gradient norm: {total_norm.item()} ---")  # In giá trị norm gradient
-
-        # print(f"Gradient norm: {total_norm.item()}")  # In giá trị norm gradient
-
-        # utils.clip_grad_norm_(model.parameters(), max_norm) # Gradient Clipping 
+        print(f"\n--- Gradient norm Before Clipping: {total_norm.item()} ---")  # In giá trị norm gradient
+        utils.clip_grad_norm_(model.parameters(), max_norm) # Gradient Clipping 
+        print(f"\n---Gradient norm After Clipping: {total_norm.item()} ---")  # In giá trị norm gradient
 
         optimizer.step()
         running_loss += loss.item()
