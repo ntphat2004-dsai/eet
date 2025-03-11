@@ -214,8 +214,8 @@ def main(args):
                     sensor_size=(args.sensor_width*factor, args.sensor_height*factor)
                 ),
                 EventCutout(
-                    max_cutout_size=10, 
-                    max_cutout_ratio=0.5, 
+                    cutout_width=20, 
+                    cutout_height=20, 
                     sensor_size=(args.sensor_width*factor, args.sensor_height*factor)
                 )
             ]), 
