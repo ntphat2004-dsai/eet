@@ -155,21 +155,24 @@ def main(args):
 
         label_transform = transforms.Compose([
             ScaleLabel(factor),
-            # LabelTemporalSubsample(temp_subsample_factor),
             NormalizeLabel(pseudo_width=640*factor, pseudo_height=480*factor)
         ])
 
         # Then we define the raw event recording and label dataset, the raw events spatial coordinates are also downsampled
-        train_data_orig = ThreeETplus_Eyetracking(save_to=args.data_dir, split="train", \
-                        transform=transforms.Downsample(spatial_factor=factor),
-                        # transform=data_transform, 
-                        target_transform=label_transform
-                                                  )
-        val_data_orig = ThreeETplus_Eyetracking(save_to=args.data_dir, split="val", \
-                        transform=transforms.Downsample(spatial_factor=factor),
-                        # transform=data_transform,
-                        target_transform=label_transform
-                                                )
+        train_data_orig = ThreeETplus_Eyetracking(
+            save_to=args.data_dir, 
+            split="train", 
+            transform=transforms.Downsample(spatial_factor=factor),
+            # transform=data_transform, 
+            target_transform=label_transform
+        )
+        val_data_orig = ThreeETplus_Eyetracking(
+            save_to=args.data_dir, 
+            split="val", 
+            transform=transforms.Downsample(spatial_factor=factor),
+            # transform=data_transform,
+            target_transform=label_transform
+        )
 
         # Then we slice the event recordings into sub-sequences. 
         # The time-window is determined by the sequence length (train_length, val_length) 
@@ -177,11 +180,19 @@ def main(args):
         slicing_time_window = args.train_length*int(10000/temp_subsample_factor) #microseconds
         train_stride_time = int(10000/temp_subsample_factor*args.train_stride) #microseconds
 
-        train_slicer=SliceByTimeEventsTargets(slicing_time_window, overlap=slicing_time_window-train_stride_time, \
-                        seq_length=args.train_length, seq_stride=args.train_stride, include_incomplete=False)
+        train_slicer=SliceByTimeEventsTargets(
+            slicing_time_window, 
+            overlap=slicing_time_window-train_stride_time, 
+            seq_length=args.train_length, 
+            seq_stride=args.train_stride, 
+            include_incomplete=False)
+        
         # the validation set is sliced to non-overlapping sequences
-        val_slicer=SliceByTimeEventsTargets(slicing_time_window, overlap=0, \
-                        seq_length=args.val_length, seq_stride=args.val_stride, include_incomplete=False)
+        val_slicer=SliceByTimeEventsTargets(
+            slicing_time_window, overlap=0,
+            seq_length=args.val_length, 
+            seq_stride=args.val_stride, 
+            include_incomplete=False)
 
         # After slicing the raw event recordings into sub-sequences, 
         # we make each subsequences into your favorite event representation, 
