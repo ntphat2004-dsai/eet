@@ -341,7 +341,8 @@ class SpatialShift:
         """
         self.max_shift_x = max_shift_x
         self.max_shift_y = max_shift_y
-        self.sensor_width, self.sensor_height = sensor_size
+        # Ép sensor_size về int nếu chưa
+        self.sensor_width, self.sensor_height = int(sensor_size[0]), int(sensor_size[1])
 
     def __call__(self, voxel_grid):
         """
