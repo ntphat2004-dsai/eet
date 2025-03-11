@@ -151,8 +151,14 @@ def main(args):
         # Augmentation cho training
         train_transform = transforms.Compose([
             transforms.Downsample(spatial_factor=factor),
-            SpatialShift(max_shift=10),
-            EventCutout(cutout_size=(20, 20))
+            SpatialShift(
+                max_shift_x=10, 
+                max_shift_y=10, 
+                sensor_size=(args.sensor_width*factor, args.sensor_height*factor)),
+            EventCutout(
+                cutout_width=20, 
+                cutout_height=20, 
+                sensor_size=(args.sensor_width*factor, args.sensor_height*factor))
         ])
         # Validation chỉ dùng Downsample
         val_transform = transforms.Downsample(spatial_factor=factor)
