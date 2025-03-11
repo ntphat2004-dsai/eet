@@ -61,9 +61,9 @@ class SelfAttention(nn.Module):
         out = torch.bmm(attn, V)
         return out
 
-class CNN_BiGRU_SelfAttention(nn.Module):
+class CustomCNN_BiGRU_SelfAttention(nn.Module):
     """
-    Mô hình dự đoán tâm đồng tử kết hợp CNN + BiGRU + SelfAttention.
+    Mô hình dự đoán tâm đồng tử kết hợp custom CNN + BiGRU + SelfAttention.
     """
     def __init__(self, args):
         super().__init__()
@@ -162,6 +162,69 @@ class EfficientNetB0_BiGRU_SelfAttention(nn.Module):
         x = x.view(batch_size, seq_len, -1)
         x, _ = self.bigru(x)  # Output: (batch_size, seq_len, gru_hidden_size*2)
         x = self.self_attention(x)
+        x = self.fc(x)        # Output: (batch_size, seq_len, 2)
+        return x
+    
+class MambaModule(nn.Module):
+    def __init__(self, in_features, out_features):
+        super(MambaModule, self).__init__()
+        # Hai nhánh xử lý độc lập
+        self.branch1 = nn.Sequential(
+            nn.Linear(in_features, out_features),
+            nn.ReLU(inplace=True)
+        )
+        self.branch2 = nn.Sequential(
+            nn.Linear(in_features, out_features),
+            nn.ReLU(inplace=True)
+        )
+        # Hợp nhất kết quả từ hai nhánh
+        self.fuse = nn.Linear(out_features * 2, out_features)
+        
+    def forward(self, x):
+        # x: (N, in_features)
+        out1 = self.branch1(x)
+        out2 = self.branch2(x)
+        # Nối kết quả từ hai nhánh theo chiều cuối cùng
+        out = torch.cat([out1, out2], dim=-1)
+        out = self.fuse(out)
+        return out
+
+class EfficientNetB0_Mamba_BiGRU_SelfAttention(nn.Module):
+    """
+    Mô hình dự đoán vị trí đồng tử:
+      - Đầu vào: (batch_size, seq_len, channels, height, width)
+      - Đầu ra: (batch_size, seq_len, 2)
+    """
+    def __init__(self, args, feature_dim=256, gru_hidden_size=128):
+        super(EfficientNetB0_BiGRU_SelfAttention, self).__init__()
+        self.args = args
+        # Backbone trích xuất đặc trưng từ từng khung hình
+        self.backbone = EfficientNetBackbone(feature_dim=feature_dim, pretrained=True)
+        # Module Mamba để tinh chỉnh đặc trưng ngay sau backbone
+        self.mamba = MambaModule(in_features=feature_dim, out_features=feature_dim)
+        # GRU xử lý chuỗi thời gian, với input_size = feature_dim
+        self.bigru = nn.GRU(input_size=feature_dim, hidden_size=gru_hidden_size, 
+                            num_layers=1, bidirectional=True, batch_first=True)
+        # Self-Attention với input_dim = gru_hidden_size*2 (do GRU là bidirectional)
+        self.self_attention = SelfAttention(input_dim=gru_hidden_size*2)
+        # Lớp Fully-Connected cuối cùng để dự đoán tọa độ (2 giá trị: x, y)
+        self.fc = nn.Linear(gru_hidden_size*2, 2)
+    
+    def forward(self, x):
+        # x có shape: (batch_size, seq_len, channels, height, width)
+        batch_size, seq_len, channels, height, width = x.shape
+        # Gộp batch và seq lại để xử lý từng frame qua EfficientNetB0
+        x = x.view(batch_size * seq_len, channels, height, width)
+        x = self.backbone(x)  # Output: (batch_size * seq_len, feature_dim)
+        # Áp dụng Mamba để làm giàu đặc trưng
+        x = self.mamba(x)     # Vẫn giữ shape: (batch_size * seq_len, feature_dim)
+        # Reshape về lại dạng chuỗi: (batch_size, seq_len, feature_dim)
+        x = x.view(batch_size, seq_len, -1)
+        # Xử lý chuỗi qua BiGRU: output có shape (batch_size, seq_len, gru_hidden_size*2)
+        x, _ = self.bigru(x)
+        # Áp dụng Self-Attention
+        x = self.self_attention(x)
+        # Dự đoán tọa độ (x, y) cho mỗi khung hình
         x = self.fc(x)        # Output: (batch_size, seq_len, 2)
         return x
 
