@@ -20,7 +20,7 @@ from utils.training_utils import train_epoch, validate_epoch, top_k_checkpoints
 from utils.metrics import weighted_MSELoss
 from dataset import ThreeETplus_Eyetracking, ScaleLabel, NormalizeLabel, \
     LabelTemporalSubsample, NormalizeLabel, SliceLongEventsToShort, \
-    EventSlicesToVoxelGrid, SliceByTimeEventsTargets
+    EventSlicesToVoxelGrid, SliceByTimeEventsTargets, SpatialShift, EventCutout
 import tonic.transforms as transforms
 from tonic import SlicedDataset, DiskCachedDataset
 from tqdm import tqdm
@@ -204,7 +204,23 @@ def main(args):
         ])
 
         # We use the Tonic SlicedDataset class to handle the collation of the sub-sequences into batches.
-        train_data = SlicedDataset(train_data_orig, train_slicer, transform=post_slicer_transform, metadata_path=f"./metadata/3et_train_tl_{args.train_length}_ts{args.train_stride}_ch{args.n_time_bins}")
+        train_data = SlicedDataset(
+            train_data_orig, 
+            train_slicer, 
+            transform=post_slicer_transform + transforms.Compose([
+                SpatialShift(
+                    max_shift_x=10, 
+                    max_shift_y=10, 
+                    sensor_size=(args.sensor_width*factor, args.sensor_height*factor)
+                ),
+                EventCutout(
+                    max_cutout_size=10, 
+                    max_cutout_ratio=0.5, 
+                    sensor_size=(args.sensor_width*factor, args.sensor_height*factor)
+                )
+            ]), 
+            metadata_path=f"./metadata/3et_train_tl_{args.train_length}_ts{args.train_stride}_ch{args.n_time_bins}")
+        
         val_data = SlicedDataset(val_data_orig, val_slicer, transform=post_slicer_transform, metadata_path=f"./metadata/3et_val_vl_{args.val_length}_vs{args.val_stride}_ch{args.n_time_bins}")
 
         # cache the dataset to disk to speed up training. The first epoch will be slow, but the following epochs will be fast.
