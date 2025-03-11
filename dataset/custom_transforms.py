@@ -337,19 +337,20 @@ class SpatialShift:
         Args:
             max_shift_x (int): Maximum shift along x-axis.
             max_shift_y (int): Maximum shift along y-axis.
-            sensor_size (tuple): (width, height) of the sensor (spatial dimensions of the voxel grid).
+            sensor_size (tuple): (width, height) tham khảo (không nhất thiết phải khớp với kích thước thực tế của voxel grid).
         """
         self.max_shift_x = max_shift_x
         self.max_shift_y = max_shift_y
-        # Ép sensor_size về int nếu chưa
-        self.sensor_width, self.sensor_height = int(sensor_size[0]), int(sensor_size[1])
+        # sensor_size tham khảo, nhưng trong __call__ ta sẽ lấy kích thước thực tế của voxel grid.
+        self.ref_sensor_width, self.ref_sensor_height = int(sensor_size[0]), int(sensor_size[1])
 
     def __call__(self, voxel_grid):
         """
         Apply a random spatial shift on voxel grid data.
+        Hỗ trợ voxel grid dạng 3D (n_time_bins, height, width) hoặc 4D (n_time_bins, channels, height, width).
 
         Args:
-            voxel_grid (np.ndarray): Voxel grid with shape (n_time_bins, sensor_height, sensor_width).
+            voxel_grid (np.ndarray): Voxel grid data.
 
         Returns:
             np.ndarray: Shifted voxel grid.
@@ -357,27 +358,53 @@ class SpatialShift:
         shift_x = np.random.randint(-self.max_shift_x, self.max_shift_x + 1)
         shift_y = np.random.randint(-self.max_shift_y, self.max_shift_y + 1)
 
-        # Tạo một mảng voxel grid mới, điền giá trị 0
-        shifted = np.zeros_like(voxel_grid)
-
-        # Xác định các slice cho trục y
-        if shift_y >= 0:
-            src_y = slice(0, self.sensor_height - shift_y)
-            dst_y = slice(shift_y, self.sensor_height)
+        # Xác định kích thước thực tế của voxel grid dựa trên số chiều
+        if voxel_grid.ndim == 3:
+            # voxel_grid shape: (n_time_bins, height, width)
+            height = voxel_grid.shape[1]
+            width = voxel_grid.shape[2]
+            shifted = np.zeros_like(voxel_grid)
+            
+            if shift_y >= 0:
+                src_y = slice(0, height - shift_y)
+                dst_y = slice(shift_y, height)
+            else:
+                src_y = slice(-shift_y, height)
+                dst_y = slice(0, height + shift_y)
+                
+            if shift_x >= 0:
+                src_x = slice(0, width - shift_x)
+                dst_x = slice(shift_x, width)
+            else:
+                src_x = slice(-shift_x, width)
+                dst_x = slice(0, width + shift_x)
+            
+            shifted[:, dst_y, dst_x] = voxel_grid[:, src_y, src_x]
+            
+        elif voxel_grid.ndim == 4:
+            # voxel_grid shape: (n_time_bins, channels, height, width)
+            height = voxel_grid.shape[2]
+            width = voxel_grid.shape[3]
+            shifted = np.zeros_like(voxel_grid)
+            
+            if shift_y >= 0:
+                src_y = slice(0, height - shift_y)
+                dst_y = slice(shift_y, height)
+            else:
+                src_y = slice(-shift_y, height)
+                dst_y = slice(0, height + shift_y)
+                
+            if shift_x >= 0:
+                src_x = slice(0, width - shift_x)
+                dst_x = slice(shift_x, width)
+            else:
+                src_x = slice(-shift_x, width)
+                dst_x = slice(0, width + shift_x)
+            
+            shifted[:, :, dst_y, dst_x] = voxel_grid[:, :, src_y, src_x]
         else:
-            src_y = slice(-shift_y, self.sensor_height)
-            dst_y = slice(0, self.sensor_height + shift_y)
-
-        # Xác định các slice cho trục x
-        if shift_x >= 0:
-            src_x = slice(0, self.sensor_width - shift_x)
-            dst_x = slice(shift_x, self.sensor_width)
-        else:
-            src_x = slice(-shift_x, self.sensor_width)
-            dst_x = slice(0, self.sensor_width + shift_x)
-
-        # Áp dụng dịch chuyển cho tất cả các time bin
-        shifted[:, dst_y, dst_x] = voxel_grid[:, src_y, src_x]
+            raise ValueError("Voxel grid must be a 3D or 4D numpy array.")
+        
         return shifted
     
 class EventCutout:
