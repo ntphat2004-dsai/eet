@@ -413,32 +413,60 @@ class EventCutout:
         Khởi tạo phép biến đổi EventCutout.
 
         Args:
-        - cutout_width (int): Chiều rộng của vùng cutout.
-        - cutout_height (int): Chiều cao của vùng cutout.
-        - sensor_size (tuple): (width, height) của cảm biến.
+            cutout_width (int): Chiều rộng của vùng cutout.
+            cutout_height (int): Chiều cao của vùng cutout.
+            sensor_size (tuple): (width, height) của cảm biến. (Được dùng cho raw events)
         """
         self.cutout_width = cutout_width
         self.cutout_height = cutout_height
-        self.sensor_width, self.sensor_height = sensor_size
+        self.sensor_width, self.sensor_height = int(sensor_size[0]), int(sensor_size[1])
 
     def __call__(self, events):
         """
-        Áp dụng phép cutout cho dữ liệu sự kiện bằng cách loại bỏ các sự kiện nằm trong một vùng chữ nhật ngẫu nhiên.
+        Áp dụng phép cutout cho dữ liệu sự kiện.
+        
+        - Nếu events là raw events (structured array), thực hiện cắt dựa trên các trường "x", "y".
+        - Nếu events là voxel grid (plain numpy array 3D hoặc 4D), sẽ zero out một vùng chữ nhật ngẫu nhiên.
 
         Args:
-        - events (np.ndarray): Mảng sự kiện với các trường ["x", "y", "t", "p"].
+            events (np.ndarray): Mảng sự kiện, có thể là structured array hoặc voxel grid.
 
         Returns:
-        - np.ndarray: Mảng sự kiện sau khi đã loại bỏ các sự kiện nằm trong vùng cutout.
+            np.ndarray: Dữ liệu sau khi cắt (loại bỏ hoặc zero-out vùng).
         """
-        # Chọn vị trí góc trên bên trái cho vùng cutout một cách ngẫu nhiên
-        x_min = np.random.randint(0, self.sensor_width - self.cutout_width + 1)
-        y_min = np.random.randint(0, self.sensor_height - self.cutout_height + 1)
-        x_max = x_min + self.cutout_width
-        y_max = y_min + self.cutout_height
+        # Kiểm tra xem events có phải là structured array hay không
+        if events.dtype.names is not None:
+            # Xử lý raw events
+            x_min = np.random.randint(0, self.sensor_width - self.cutout_width + 1)
+            y_min = np.random.randint(0, self.sensor_height - self.cutout_height + 1)
+            x_max = x_min + self.cutout_width
+            y_max = y_min + self.cutout_height
 
-        # Tạo mask để loại bỏ các sự kiện nằm trong vùng cutout
-        mask = (events["x"] < x_min) | (events["x"] >= x_max) | (events["y"] < y_min) | (events["y"] >= y_max)
-        return events[mask]
+            mask = (events["x"] < x_min) | (events["x"] >= x_max) | (events["y"] < y_min) | (events["y"] >= y_max)
+            return events[mask]
+        else:
+            # Giả sử đây là voxel grid. Hỗ trợ cả mảng 3D và 4D.
+            if events.ndim == 3:
+                # Voxel grid có shape: (n_time_bins, height, width)
+                H = events.shape[1]
+                W = events.shape[2]
+                x_min = np.random.randint(0, W - self.cutout_width + 1)
+                y_min = np.random.randint(0, H - self.cutout_height + 1)
+                x_max = x_min + self.cutout_width
+                y_max = y_min + self.cutout_height
+                events[:, y_min:y_max, x_min:x_max] = 0
+                return events
+            elif events.ndim == 4:
+                # Voxel grid có shape: (n_time_bins, channels, height, width)
+                H = events.shape[2]
+                W = events.shape[3]
+                x_min = np.random.randint(0, W - self.cutout_width + 1)
+                y_min = np.random.randint(0, H - self.cutout_height + 1)
+                x_max = x_min + self.cutout_width
+                y_max = y_min + self.cutout_height
+                events[:, :, y_min:y_max, x_min:x_max] = 0
+                return events
+            else:
+                raise ValueError("Unexpected input dimension for EventCutout.")
 
 
