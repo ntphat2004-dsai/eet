@@ -328,39 +328,6 @@ class NormalizeLabel:
         labels[:, 1] = labels[:, 1] / self.pseudo_height
         return labels
 
-class EventCutout:
-    def __init__(self, cutout_width, cutout_height, sensor_size):
-        """
-        Khởi tạo phép biến đổi EventCutout.
-
-        Args:
-        - cutout_width (int): Chiều rộng của vùng cutout.
-        - cutout_height (int): Chiều cao của vùng cutout.
-        - sensor_size (tuple): (width, height) của cảm biến.
-        """
-        self.cutout_width = cutout_width
-        self.cutout_height = cutout_height
-        self.sensor_width, self.sensor_height = sensor_size
-
-    def __call__(self, events):
-        """
-        Áp dụng phép cutout cho dữ liệu sự kiện bằng cách loại bỏ các sự kiện nằm trong một vùng chữ nhật ngẫu nhiên.
-
-        Args:
-        - events (np.ndarray): Mảng sự kiện với các trường ["x", "y", "t", "p"].
-
-        Returns:
-        - np.ndarray: Mảng sự kiện sau khi đã loại bỏ các sự kiện nằm trong vùng cutout.
-        """
-        # Chọn vị trí góc trên bên trái cho vùng cutout một cách ngẫu nhiên
-        x_min = np.random.randint(0, self.sensor_width - self.cutout_width + 1)
-        y_min = np.random.randint(0, self.sensor_height - self.cutout_height + 1)
-        x_max = x_min + self.cutout_width
-        y_max = y_min + self.cutout_height
-
-        # Tạo mask để loại bỏ các sự kiện nằm trong vùng cutout
-        mask = (events["x"] < x_min) | (events["x"] >= x_max) | (events["y"] < y_min) | (events["y"] >= y_max)
-        return events[mask]
 
 class SpatialShift:
     def __init__(self, max_shift_x, max_shift_y, sensor_size):
@@ -397,3 +364,39 @@ class SpatialShift:
         events["y"] = np.clip(events["y"], 0, self.sensor_height - 1)
 
         return events
+    
+class EventCutout:
+    def __init__(self, cutout_width, cutout_height, sensor_size):
+        """
+        Khởi tạo phép biến đổi EventCutout.
+
+        Args:
+        - cutout_width (int): Chiều rộng của vùng cutout.
+        - cutout_height (int): Chiều cao của vùng cutout.
+        - sensor_size (tuple): (width, height) của cảm biến.
+        """
+        self.cutout_width = cutout_width
+        self.cutout_height = cutout_height
+        self.sensor_width, self.sensor_height = sensor_size
+
+    def __call__(self, events):
+        """
+        Áp dụng phép cutout cho dữ liệu sự kiện bằng cách loại bỏ các sự kiện nằm trong một vùng chữ nhật ngẫu nhiên.
+
+        Args:
+        - events (np.ndarray): Mảng sự kiện với các trường ["x", "y", "t", "p"].
+
+        Returns:
+        - np.ndarray: Mảng sự kiện sau khi đã loại bỏ các sự kiện nằm trong vùng cutout.
+        """
+        # Chọn vị trí góc trên bên trái cho vùng cutout một cách ngẫu nhiên
+        x_min = np.random.randint(0, self.sensor_width - self.cutout_width + 1)
+        y_min = np.random.randint(0, self.sensor_height - self.cutout_height + 1)
+        x_max = x_min + self.cutout_width
+        y_max = y_min + self.cutout_height
+
+        # Tạo mask để loại bỏ các sự kiện nằm trong vùng cutout
+        mask = (events["x"] < x_min) | (events["x"] >= x_max) | (events["y"] < y_min) | (events["y"] >= y_max)
+        return events[mask]
+
+

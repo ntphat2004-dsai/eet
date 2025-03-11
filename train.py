@@ -166,6 +166,7 @@ def main(args):
             # transform=data_transform, 
             target_transform=label_transform
         )
+
         val_data_orig = ThreeETplus_Eyetracking(
             save_to=args.data_dir, 
             split="val", 
@@ -198,30 +199,45 @@ def main(args):
         # we make each subsequences into your favorite event representation, 
         # in this case event voxel-grid
         post_slicer_transform = transforms.Compose([
-            SliceLongEventsToShort(time_window=int(10000/temp_subsample_factor), overlap=0, include_incomplete=True),
-            EventSlicesToVoxelGrid(sensor_size=(int(640*factor), int(480*factor), 2), \
-                                    n_time_bins=args.n_time_bins, per_channel_normalize=args.voxel_grid_ch_normaization)
+            SliceLongEventsToShort(
+                time_window=int(10000/temp_subsample_factor), 
+                overlap=0, 
+                include_incomplete=True),
+            EventSlicesToVoxelGrid(
+                sensor_size=(int(640*factor), int(480*factor), 2),
+                n_time_bins=args.n_time_bins, 
+                per_channel_normalize=args.voxel_grid_ch_normaization)
         ])
+
+        # Augmentation cho training
+        train_transform = transforms.Compose([
+            SpatialShift(
+                max_shift_x=10, 
+                max_shift_y=10, 
+                sensor_size=(args.sensor_width*factor, args.sensor_height*factor)),
+            EventCutout(
+                cutout_width=20, 
+                cutout_height=20, 
+                sensor_size=(args.sensor_width*factor, args.sensor_height*factor))
+        ]) 
+
+        # Combine transforms 
+        train_post_slicer_transform = transforms.Compose(
+            post_slicer_transform.transforms + train_transform.transforms
+        )
 
         # We use the Tonic SlicedDataset class to handle the collation of the sub-sequences into batches.
         train_data = SlicedDataset(
             train_data_orig, 
             train_slicer, 
-            transform=post_slicer_transform + transforms.Compose([
-                SpatialShift(
-                    max_shift_x=10, 
-                    max_shift_y=10, 
-                    sensor_size=(args.sensor_width*factor, args.sensor_height*factor)
-                ),
-                EventCutout(
-                    cutout_width=20, 
-                    cutout_height=20, 
-                    sensor_size=(args.sensor_width*factor, args.sensor_height*factor)
-                )
-            ]), 
+            transform=train_post_slicer_transform,
             metadata_path=f"./metadata/3et_train_tl_{args.train_length}_ts{args.train_stride}_ch{args.n_time_bins}")
         
-        val_data = SlicedDataset(val_data_orig, val_slicer, transform=post_slicer_transform, metadata_path=f"./metadata/3et_val_vl_{args.val_length}_vs{args.val_stride}_ch{args.n_time_bins}")
+        val_data = SlicedDataset(
+            val_data_orig, 
+            val_slicer, 
+            transform=post_slicer_transform, 
+            metadata_path=f"./metadata/3et_val_vl_{args.val_length}_vs{args.val_stride}_ch{args.n_time_bins}")
 
         # cache the dataset to disk to speed up training. The first epoch will be slow, but the following epochs will be fast.
         train_data = DiskCachedDataset(train_data, cache_path=f'./cached_dataset/train_tl_{args.train_length}_ts{args.train_stride}_ch{args.n_time_bins}')
