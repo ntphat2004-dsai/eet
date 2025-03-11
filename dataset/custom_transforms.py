@@ -332,38 +332,52 @@ class NormalizeLabel:
 class SpatialShift:
     def __init__(self, max_shift_x, max_shift_y, sensor_size):
         """
-        Initialize the transformation.
+        Initialize the transformation on voxel grid.
 
         Args:
-        - max_shift_x (int): Maximum shift along x-axis.
-        - max_shift_y (int): Maximum shift along y-axis.
-        - sensor_size (tuple): (width, height) of the sensor.
+            max_shift_x (int): Maximum shift along x-axis.
+            max_shift_y (int): Maximum shift along y-axis.
+            sensor_size (tuple): (width, height) of the sensor (spatial dimensions of the voxel grid).
         """
         self.max_shift_x = max_shift_x
         self.max_shift_y = max_shift_y
         self.sensor_width, self.sensor_height = sensor_size
 
-    def __call__(self, events):
+    def __call__(self, voxel_grid):
         """
-        Apply a random spatial shift to event data.
+        Apply a random spatial shift on voxel grid data.
 
         Args:
-        - events (np.ndarray): Array of events with fields ["x", "y", "t", "p"].
+            voxel_grid (np.ndarray): Voxel grid with shape (n_time_bins, sensor_height, sensor_width).
 
         Returns:
-        - np.ndarray: Transformed event data.
+            np.ndarray: Shifted voxel grid.
         """
         shift_x = np.random.randint(-self.max_shift_x, self.max_shift_x + 1)
         shift_y = np.random.randint(-self.max_shift_y, self.max_shift_y + 1)
 
-        events["x"] += shift_x
-        events["y"] += shift_y
+        # Tạo một mảng voxel grid mới, điền giá trị 0
+        shifted = np.zeros_like(voxel_grid)
 
-        # Clip to ensure events remain within sensor boundaries
-        events["x"] = np.clip(events["x"], 0, self.sensor_width - 1)
-        events["y"] = np.clip(events["y"], 0, self.sensor_height - 1)
+        # Xác định các slice cho trục y
+        if shift_y >= 0:
+            src_y = slice(0, self.sensor_height - shift_y)
+            dst_y = slice(shift_y, self.sensor_height)
+        else:
+            src_y = slice(-shift_y, self.sensor_height)
+            dst_y = slice(0, self.sensor_height + shift_y)
 
-        return events
+        # Xác định các slice cho trục x
+        if shift_x >= 0:
+            src_x = slice(0, self.sensor_width - shift_x)
+            dst_x = slice(shift_x, self.sensor_width)
+        else:
+            src_x = slice(-shift_x, self.sensor_width)
+            dst_x = slice(0, self.sensor_width + shift_x)
+
+        # Áp dụng dịch chuyển cho tất cả các time bin
+        shifted[:, dst_y, dst_x] = voxel_grid[:, src_y, src_x]
+        return shifted
     
 class EventCutout:
     def __init__(self, cutout_width, cutout_height, sensor_size):
