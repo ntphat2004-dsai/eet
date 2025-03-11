@@ -29,7 +29,6 @@ from dataset import (
     EventCutout
 )
 
-
 import tonic.transforms as transforms
 from tonic import SlicedDataset, DiskCachedDataset
 from tqdm import tqdm
@@ -124,13 +123,9 @@ def main(args):
         with open(args_file_path, 'w') as f:
             json.dump(vars(args), f)
 
-        # Khởi tạo mô hình qua dictionary để tăng tính an toàn
-        model_dict = {"BaselineEyeTrackingModel": BaselineEyeTrackingModel}
-        if args.architecture not in model_dict:
-            raise ValueError(f"Unknown architecture: {args.architecture}")
-        model = model_dict[args.architecture](args).to(args.device)
-        
-        optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
+        # Define your model, optimizer, and criterion
+        model = eval(args.architecture)(args).to(args.device)
+        optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4) # Decay learning rate
         if args.loss == "mse":
             criterion = nn.MSELoss()
         elif args.loss == "weighted_mse":
