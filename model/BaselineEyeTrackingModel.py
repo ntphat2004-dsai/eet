@@ -196,7 +196,7 @@ class EfficientNetB0_Mamba_BiGRU_SelfAttention(nn.Module):
       - Đầu ra: (batch_size, seq_len, 2)
     """
     def __init__(self, args, feature_dim=256, gru_hidden_size=128):
-        super(EfficientNetB0_BiGRU_SelfAttention, self).__init__()
+        super(EfficientNetB0_Mamba_BiGRU_SelfAttention, self).__init__()
         self.args = args
         # Backbone trích xuất đặc trưng từ từng khung hình
         self.backbone = EfficientNetBackbone(feature_dim=feature_dim, pretrained=True)
