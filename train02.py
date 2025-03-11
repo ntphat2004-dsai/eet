@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from model.BaselineEyeTrackingModel import BaselineEyeTrackingModel
+from model.BaselineEyeTrackingModel import *
 from utils.training_utils import train_epoch, validate_epoch, top_k_checkpoints
 from utils.metrics import weighted_MSELoss
 from dataset import (
@@ -28,6 +28,8 @@ from dataset import (
     SpatialShift,
     EventCutout
 )
+
+
 import tonic.transforms as transforms
 from tonic import SlicedDataset, DiskCachedDataset
 from tqdm import tqdm
