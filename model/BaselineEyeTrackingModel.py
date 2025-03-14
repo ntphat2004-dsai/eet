@@ -72,19 +72,19 @@ class CustomCNN_BiGRU_SelfAttention(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1)
         self.pool = nn.MaxPool2d(kernel_size=3, stride=2)
-        # Sử dụng GRU hai chiều (BiGRU) với hidden_size = 128 -> output có kích thước 256
+        # Applied (BiGRU) hidden_size = 128 -> output shape = 256
         self.bigru = nn.GRU(input_size=72160, hidden_size=128, num_layers=1, 
                             bidirectional=True, batch_first=True)
-        # Self-Attention với input_dim = 256 (tương ứng với output của BiGRU)
+        # Self-Attention, input_dim = 256 ~ output BiGRU)
         self.self_attention = SelfAttention(input_dim=256)
         self.fc = nn.Linear(256, 2)
 
     def forward(self, x):
-        # x có shape: (batch_size, seq_len, channels, height, width)
+        # x shape: (batch_size, seq_len, channels, height, width)
         batch_size, seq_len, channels, height, width = x.shape
         print(f"\nnData Shape (batch_size, seq_len, channels, height, width) -> {x.shape}")
         x = x.view(batch_size * seq_len, channels, height, width)
-        # Đảo vị trí chiều height và width nếu cần
+        
         x = x.permute(0, 1, 3, 2)
 
         x = torch.relu(self.conv1(x))
@@ -93,9 +93,9 @@ class CustomCNN_BiGRU_SelfAttention(nn.Module):
         x = self.pool(x)
 
         x = x.view(batch_size, seq_len, -1)
-        x, _ = self.bigru(x)  # output có shape (batch_size, seq_len, 256)
-        x = self.self_attention(x)  # Áp dụng Self-Attention
-        x = self.fc(x)  # output cuối có shape (batch_size, seq_len, 2)
+        x, _ = self.bigru(x)  # Output shape (batch_size, seq_len, 256)
+        x = self.self_attention(x)  # Applied Self-Attention
+        x = self.fc(x)  # Last output shape (batch_size, seq_len, 2)
         print(f"\nOutput Shape {x.shape}")
         return x
 
@@ -201,7 +201,7 @@ class EfficientNetB0_Mamba_BiGRU_SelfAttention(nn.Module):
         # Backbone trích xuất đặc trưng từ từng khung hình
         self.backbone = EfficientNetBackbone(feature_dim=feature_dim, pretrained=True)
         # Module Mamba để tinh chỉnh đặc trưng ngay sau backbone
-        self.mamba = MambaModule(in_features=feature_dim, out_features=feature_dim)
+        self.mamba = Mamba(in_features=feature_dim, out_features=feature_dim)
         # GRU xử lý chuỗi thời gian, với input_size = feature_dim
         self.bigru = nn.GRU(input_size=feature_dim, hidden_size=gru_hidden_size, 
                             num_layers=1, bidirectional=True, batch_first=True)
