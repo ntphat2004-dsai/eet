@@ -23,6 +23,6 @@
     "voxel_grid_ch_normaization": false,
     "loss": "weighted_mse",
     "model_path": "./saved_models",
-    "unfreeze_layers": 0,
-    "unfreeze_epoch": 0,
+    "unfreeze_layers": 2,
+    "unfreeze_epoch": 100
 }
