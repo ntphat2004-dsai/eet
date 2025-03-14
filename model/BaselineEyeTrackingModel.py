@@ -263,7 +263,7 @@ class MambaSSM(nn.Module):
         out = torch.stack(outputs, dim=1)  # (batch_size, seq_len, hidden_dim)
         return self.ln(out)
 
-class EfficientNetB0_Mamba_BiGRU_SelfAttention(nn.Module):
+class EfficientNetB0_Mamba_BiGRU_SelfAttention_V2(nn.Module):
     """
     Mô hình dự đoán tâm đồng tử sử dụng:
     - EfficientNetB0 để trích xuất đặc trưng hình ảnh
@@ -276,7 +276,7 @@ class EfficientNetB0_Mamba_BiGRU_SelfAttention(nn.Module):
     Đầu ra: (batch_size, seq_len, 2)
     """
     def __init__(self, args, feature_dim=256, mamba_hidden_dim=256, seq_len=10, gru_hidden_size=128):
-        super(EfficientNetB0_Mamba_BiGRU_SelfAttention, self).__init__()
+        super(EfficientNetB0_Mamba_BiGRU_SelfAttention_V2, self).__init__()
         self.args = args
         self.backbone = EfficientNetBackbone(feature_dim=feature_dim, pretrained=True)
         
