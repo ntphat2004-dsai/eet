@@ -315,3 +315,31 @@ class EfficientNetB0_Mamba_BiGRU_SelfAttention_V2(nn.Module):
         # Dự đoán tọa độ
         x = self.fc(x)  # (batch_size, seq_len, 2)
         return x
+
+
+class EfficientNetB0_BiGRU_MambaSSM(nn.Module):
+    """ 
+    Mô hình dự đoán tâm đồng tử sử dụng:
+    - EfficientNetB0 làm Backbone cho phần trích xuất đặc trưng
+    - BiGRU để học quan hệ thời gian
+    - MambaSSM để xử lý chuỗi thời gian có chọn lọc
+    - Fully Connected để dự đoán tọa độ (x, y)
+    """
+    def __init__(self, args, feature_dim=256, mamba_hidden_dim=256, seq_len=10, gru_hidden_size=128):
+        super(EfficientNetB0_BiGRU_MambaSSM, self).__init__()
+        self.args = args
+        self.backbone = EfficientNetBackbone(feature_dim=feature_dim, pretrained=True)
+        self.mamba = MambaSSM(input_dim=feature_dim, hidden_dim=mamba_hidden_dim, seq_len=seq_len)
+        self.bigru = nn.GRU(input_size=mamba_hidden_dim, hidden_size=gru_hidden_size, 
+                            num_layers=1, bidirectional=True, batch_first=True)
+        self.fc = nn.Linear(gru_hidden_size*2, 2)
+
+    def forward(self, x):
+        batch_size, seq_len, channels, height, width = x.shape
+        x = x.view(batch_size * seq_len, channels, height, width)
+        x = self.backbone(x)
+        x = x.view(batch_size, seq_len, -1)
+        x = self.mamba(x)
+        x, _ = self.bigru(x)
+        x = self.fc(x)
+        return x
