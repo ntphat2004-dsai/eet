@@ -329,10 +329,10 @@ class EfficientNetB0_BiGRU_MambaSSM(nn.Module):
         super(EfficientNetB0_BiGRU_MambaSSM, self).__init__()
         self.args = args
         self.backbone = EfficientNetBackbone(feature_dim=feature_dim, pretrained=True)
-        self.mamba = MambaSSM(input_dim=feature_dim, hidden_dim=mamba_hidden_dim, seq_len=seq_len)
-        self.bigru = nn.GRU(input_size=mamba_hidden_dim, hidden_size=gru_hidden_size, 
+        self.bigru = nn.GRU(input_size=feature_dim, hidden_size=gru_hidden_size, 
                             num_layers=1, bidirectional=True, batch_first=True)
-        self.fc = nn.Linear(gru_hidden_size*2, 2)
+        self.mamba = MambaSSM(input_dim=gru_hidden_size*2, hidden_dim=mamba_hidden_dim, seq_len=seq_len)
+        self.fc = nn.Linear(mamba_hidden_dim, 2)
 
     def forward(self, x):
         batch_size, seq_len, channels, height, width = x.shape

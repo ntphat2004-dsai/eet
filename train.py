@@ -16,6 +16,7 @@ import torch.optim as optim
 import shutil
 from torch.utils.data import DataLoader
 from model.BaselineEyeTrackingModel import *
+from model.ModelDemo import *
 from utils.training_utils import train_epoch, validate_epoch, top_k_checkpoints
 from utils.metrics import weighted_MSELoss
 from dataset import ThreeETplus_Eyetracking, ScaleLabel, NormalizeLabel, \
@@ -44,6 +45,11 @@ def train(model, train_loader, val_loader, criterion, optimizer, args):
 
     # Training loop
     for epoch in range(args.num_epochs):
+        # Nếu đã đến epoch unfreeze, hãy unfreeze một số tầng của backbone để fine-tune
+        if epoch == args.unfreeze_epoch:
+            model.unfreeze_backbone(num_layers=args.unfreeze_layers)
+            print(f"\n===== Unfreezing the last {args.unfreeze_layers} layers of the backbone at epoch {epoch+1} ===\n")
+
         # Add progress bar for training
         train_pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{args.num_epochs}', leave=True)
         model, train_loss, metrics = train_epoch(model, train_pbar, criterion, optimizer, args)
@@ -277,6 +283,9 @@ if __name__ == "__main__":
     # training hyperparameters
     parser.add_argument("--lr", type=float, help="learning rate")
     parser.add_argument("--num_epochs", type=int, help="number of epochs")
+    parser.add_argument("--unfreeze_layers", type=int, help="unfreeze some last layers of the backbone")
+    parser.add_argument("--unfreeze_epoch", type=int, help="epoch to unfreeze the backbone")
+
     
     args = parser.parse_args()
 

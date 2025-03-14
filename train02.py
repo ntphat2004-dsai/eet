@@ -28,7 +28,7 @@ from dataset import (
     SpatialShift,
     EventCutout
 )
-
+from model.ModelDemo import *
 import tonic.transforms as transforms
 from tonic import SlicedDataset, DiskCachedDataset
 from tqdm import tqdm
