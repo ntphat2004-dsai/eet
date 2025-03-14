@@ -470,3 +470,63 @@ class EventCutout:
                 raise ValueError("Unexpected input dimension for EventCutout.")
 
 
+class TemporalShift:
+    def __init__(self, max_shift=2, mode="wrap"):
+        """
+        Khởi tạo phép biến đổi Temporal Shift.
+
+        Args:
+            max_shift (int): Độ lệch tối đa theo trục thời gian.
+            mode (str): Cách xử lý phần dư sau khi dịch chuyển, có thể là:
+                        - "wrap": Xoay vòng dữ liệu (các sự kiện bị đẩy ra ngoài quay lại đầu)
+                        - "zero": Điền phần bị đẩy ra ngoài bằng 0
+        """
+        self.max_shift = max_shift
+        self.mode = mode
+
+    def __call__(self, events):
+        """
+        Áp dụng Temporal Shift lên dữ liệu.
+
+        Args:
+            events (np.ndarray): Dữ liệu có thể là structured array (raw events) hoặc voxel grid.
+
+        Returns:
+            np.ndarray: Dữ liệu sau khi dịch chuyển.
+        """
+        if events.dtype.names is not None:
+            # Xử lý raw events
+            shift_t = np.random.randint(-self.max_shift, self.max_shift + 1)
+            events["t"] += shift_t
+            events["t"] = np.clip(events["t"], 0, None)  # Đảm bảo t >= 0
+            return events
+        else:
+            # Xử lý voxel grid (T, H, W) hoặc (T, C, H, W)
+            shift = np.random.randint(-self.max_shift, self.max_shift + 1)
+            if shift == 0:
+                return events
+            
+            if events.ndim == 3:
+                # Voxel grid (T, H, W)
+                if self.mode == "wrap":
+                    return np.roll(events, shift, axis=0)
+                else:  # mode == "zero"
+                    if shift > 0:
+                        events[shift:] = events[:-shift]
+                        events[:shift] = 0
+                    else:
+                        events[:shift] = events[-shift:]
+                        events[shift:] = 0
+            elif events.ndim == 4:
+                # Voxel grid (T, C, H, W)
+                if self.mode == "wrap":
+                    return np.roll(events, shift, axis=0)
+                else:
+                    if shift > 0:
+                        events[shift:] = events[:-shift]
+                        events[:shift] = 0
+                    else:
+                        events[:shift] = events[-shift:]
+                        events[shift:] = 0
+            return events
+

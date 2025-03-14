@@ -165,10 +165,10 @@ class EfficientNetB0_BiGRU_SelfAttention(nn.Module):
         x = self.fc(x)        # Output: (batch_size, seq_len, 2)
         return x
     
-class MambaModule(nn.Module):
+class Mamba(nn.Module):
     def __init__(self, in_features, out_features):
-        super(MambaModule, self).__init__()
-        # Hai nhánh xử lý độc lập
+        super(Mamba, self).__init__()
+        # Independent branches
         self.branch1 = nn.Sequential(
             nn.Linear(in_features, out_features),
             nn.ReLU(inplace=True)
@@ -177,14 +177,14 @@ class MambaModule(nn.Module):
             nn.Linear(in_features, out_features),
             nn.ReLU(inplace=True)
         )
-        # Hợp nhất kết quả từ hai nhánh
+        # Concatenate two branches
         self.fuse = nn.Linear(out_features * 2, out_features)
         
     def forward(self, x):
         # x: (N, in_features)
         out1 = self.branch1(x)
         out2 = self.branch2(x)
-        # Nối kết quả từ hai nhánh theo chiều cuối cùng
+        # Get output
         out = torch.cat([out1, out2], dim=-1)
         out = self.fuse(out)
         return out
@@ -228,3 +228,90 @@ class EfficientNetB0_Mamba_BiGRU_SelfAttention(nn.Module):
         x = self.fc(x)        # Output: (batch_size, seq_len, 2)
         return x
 
+class MambaSSM(nn.Module):
+    def __init__(self, input_dim, hidden_dim, seq_len):
+        super(MambaSSM, self).__init__()
+        self.hidden_dim = hidden_dim
+        self.seq_len = seq_len
+
+        # Parameters for the state-space model
+        self.A = nn.Parameter(torch.randn(hidden_dim, hidden_dim) * 0.1)
+        self.B = nn.Parameter(torch.randn(hidden_dim, input_dim) * 0.1)
+        self.C = nn.Parameter(torch.randn(input_dim, hidden_dim) * 0.1)
+
+        # Non-linearity
+        self.activation = nn.GELU()
+        
+        # Layer normalization
+        self.ln = nn.LayerNorm(hidden_dim)
+    
+    def forward(self, x):
+        """
+        x: (batch_size, seq_len, input_dim)
+        Output: (batch_size, seq_len, hidden_dim)
+        """
+        batch_size, seq_len, input_dim = x.shape
+        h = torch.zeros(batch_size, self.hidden_dim, device=x.device)
+
+        outputs = []
+        for t in range(seq_len):
+            u_t = x[:, t, :]  # (batch_size, input_dim)
+            h = self.activation(self.A @ h.T + self.B @ u_t.T).T  # Update hidden state
+            y_t = self.C @ h.T  # Output
+            outputs.append(y_t.T)
+
+        out = torch.stack(outputs, dim=1)  # (batch_size, seq_len, hidden_dim)
+        return self.ln(out)
+
+class EfficientNetB0_Mamba_BiGRU_SelfAttention(nn.Module):
+    """
+    Mô hình dự đoán tâm đồng tử sử dụng:
+    - EfficientNetB0 để trích xuất đặc trưng hình ảnh
+    - MambaSSM để xử lý chuỗi trước khi vào BiGRU
+    - BiGRU để học quan hệ thời gian
+    - Self-Attention để khuếch đại tín hiệu quan trọng
+    - Fully Connected để dự đoán tọa độ (x, y)
+    
+    Đầu vào: (batch_size, seq_len, channels, height, width)
+    Đầu ra: (batch_size, seq_len, 2)
+    """
+    def __init__(self, args, feature_dim=256, mamba_hidden_dim=256, seq_len=10, gru_hidden_size=128):
+        super(EfficientNetB0_Mamba_BiGRU_SelfAttention, self).__init__()
+        self.args = args
+        self.backbone = EfficientNetBackbone(feature_dim=feature_dim, pretrained=True)
+        
+        # Mamba State Space Model
+        self.mamba = MambaSSM(input_dim=feature_dim, hidden_dim=mamba_hidden_dim, seq_len=seq_len)
+        
+        # BiGRU
+        self.bigru = nn.GRU(input_size=mamba_hidden_dim, hidden_size=gru_hidden_size, 
+                            num_layers=1, bidirectional=True, batch_first=True)
+        
+        # Self-Attention
+        self.self_attention = SelfAttention(input_dim=gru_hidden_size*2)
+        
+        # Fully Connected để dự đoán tọa độ (x, y)
+        self.fc = nn.Linear(gru_hidden_size*2, 2)
+    
+    def forward(self, x):
+        batch_size, seq_len, channels, height, width = x.shape
+        
+        # Gộp batch và seq lại để đưa qua EfficientNetB0
+        x = x.view(batch_size * seq_len, channels, height, width)
+        x = self.backbone(x)  # (batch_size * seq_len, feature_dim)
+        
+        # Chuyển về lại dạng chuỗi (batch_size, seq_len, feature_dim)
+        x = x.view(batch_size, seq_len, -1)
+        
+        # Đi qua MambaSSM
+        x = self.mamba(x)  # (batch_size, seq_len, mamba_hidden_dim)
+        
+        # Đi qua BiGRU
+        x, _ = self.bigru(x)  # (batch_size, seq_len, gru_hidden_size*2)
+        
+        # Self-Attention
+        x = self.self_attention(x)
+        
+        # Dự đoán tọa độ
+        x = self.fc(x)  # (batch_size, seq_len, 2)
+        return x
