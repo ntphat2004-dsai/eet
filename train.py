@@ -21,7 +21,7 @@ from utils.training_utils import train_epoch, validate_epoch, top_k_checkpoints
 from utils.metrics import weighted_MSELoss
 from dataset import ThreeETplus_Eyetracking, ScaleLabel, NormalizeLabel, \
     LabelTemporalSubsample, NormalizeLabel, SliceLongEventsToShort, \
-    EventSlicesToVoxelGrid, SliceByTimeEventsTargets, SpatialShift, EventCutout
+    EventSlicesToVoxelGrid, SliceByTimeEventsTargets, SpatialShift, EventCutout, SpatioTemporalCutout
 import tonic.transforms as transforms
 from tonic import SlicedDataset, DiskCachedDataset
 from tqdm import tqdm
@@ -29,7 +29,7 @@ from rich.console import Console
 from rich.table import Table
 from rich import print as rprint
 import torch.nn.utils as utils
-
+import random
 console = Console()
 
 # Add this function to clean cached dataset
@@ -212,25 +212,31 @@ def main(args):
             EventSlicesToVoxelGrid(
                 sensor_size=(int(640*factor), int(480*factor), 2),
                 n_time_bins=args.n_time_bins, 
-                per_channel_normalize=args.voxel_grid_ch_normaization)
+                per_channel_normalize=args.voxel_grid_ch_normaization),
+
         ])
 
-        # # Augmentation cho training
-        # train_transform = transforms.Compose([
-        #     SpatialShift(
-        #         max_shift_x=10, 
-        #         max_shift_y=10, 
-        #         sensor_size=(args.sensor_width*factor, args.sensor_height*factor)),
-        #     EventCutout(
-        #         cutout_width=20, 
-        #         cutout_height=20, 
-        #         sensor_size=(args.sensor_width*factor, args.sensor_height*factor))
-        # ]) 
+        # Augmentation cho training
+        train_transform = transforms.Compose([
+            # SpatialShift(
+            #     max_shift_x=10, 
+            #     max_shift_y=10, 
+            #     sensor_size=(args.sensor_width*factor, args.sensor_height*factor)),
+            # EventCutout(
+            #     cutout_width=10, 
+            #     cutout_height=10, 
+            #     sensor_size=(args.sensor_width*factor, args.sensor_height*factor)),
+            SpatioTemporalCutout(
+                t_cutout_size=2, 
+                h_cutout_size=10, 
+                w_cutout_size=10
+            )
+        ]) 
 
-        # # Combine transforms 
-        # train_post_slicer_transform = transforms.Compose(
-        #     post_slicer_transform.transforms + train_transform.transforms
-        # )
+        # Combine transforms 
+        train_post_slicer_transform = transforms.Compose(
+            post_slicer_transform.transforms + train_transform.transforms
+        )
 
         # We use the Tonic SlicedDataset class to handle the collation of the sub-sequences into batches.
         train_data = SlicedDataset(

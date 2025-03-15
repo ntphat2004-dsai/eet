@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import random
 from tonic.slicers import (
     slice_events_by_time,
 )
@@ -22,7 +23,7 @@ def custom_to_voxel_grid_numpy(events, sensor_size, n_time_bins=10):
     assert "x" and "y" and "t" and "p" in events.dtype.names
     assert sensor_size[2] == 2
 
-    voxel_grid = np.zeros((n_time_bins, sensor_size[1], sensor_size[0]), float).ravel()
+    voxel_grid = np.zeros((n_time_bins, sensor_size[1], sensor_size[0]), float).ravel() # (n_time_bins, H, W) -> flatten
     
     # normalize the event timestamps so that they lie between 0 and n_time_bins
     time_diff = events["t"][-1] - events["t"][0]
@@ -36,12 +37,15 @@ def custom_to_voxel_grid_numpy(events, sensor_size, n_time_bins=10):
     pols = events["p"]
     pols[pols == 0] = -1  # polarity should be +1 / -1
 
-    tis = ts.astype(int)
-    dts = ts - tis
-    vals_left = pols * (1.0 - dts)
-    vals_right = pols * dts
+    tis = ts.astype(int) # floor of ts (time index)
+    dts = ts - tis # fractional part of ts
+    vals_left = pols * (1.0 - dts) # left value for bilinear interpolation
+    vals_right = pols * dts # right value for bilinear interpolation
 
-    valid_indices = tis < n_time_bins
+    # Apply bilinear interpolation in the time domain: 
+    # each event is distributed between two adjacent bins based on the percentage of the time distance.
+
+    valid_indices = tis < n_time_bins # filter events are not out of bins range
     np.add.at(
         voxel_grid,
         xs[valid_indices]
@@ -62,8 +66,10 @@ def custom_to_voxel_grid_numpy(events, sensor_size, n_time_bins=10):
     voxel_grid = np.reshape(
         voxel_grid, (n_time_bins, 1, sensor_size[1], sensor_size[0])
     )
-
-    return voxel_grid
+    # voxel_grid shape: (n_time_bins, 1, H, W) 
+    # 1 is the number of channels. 
+    # Although the sensor has 2 polarities, the values are integrated during the accumulation process.
+    return voxel_grid 
 
 class SliceByTimeEventsTargets:
     """
@@ -160,7 +166,7 @@ class EventSlicesToVoxelGrid:
         Initialize the transformation.
 
         Args:
-        - sensor_size (tuple): The size of the sensor.
+        - sensor_size (tuple): The size of the sensor that was used [W,H].
         - n_time_bins (int): The number of time bins.
         """
         self.sensor_size = sensor_size
@@ -180,7 +186,7 @@ class EventSlicesToVoxelGrid:
         voxel_grids = []
         for event_slice in event_slices:
             voxel_grid = custom_to_voxel_grid_numpy(event_slice, self.sensor_size, self.n_time_bins)
-            voxel_grid = voxel_grid.squeeze(-3)
+            voxel_grid = voxel_grid.squeeze(-3) # (n_time_bins, 1, H, W) -> (n_time_bins, H, W)
             if self.per_channel_normalize:
                 # Calculate mean and standard deviation only at non-zero values
                 non_zero_entries = (voxel_grid != 0)
@@ -190,7 +196,7 @@ class EventSlicesToVoxelGrid:
 
                     voxel_grid[c][non_zero_entries[c]] = (voxel_grid[c][non_zero_entries[c]] - mean_c) / (std_c + 1e-10)
             voxel_grids.append(voxel_grid)
-        return np.array(voxel_grids).astype(np.float32)
+        return np.array(voxel_grids).astype(np.float32) # (batch_size, n_time_bins, H, W)
 
 
 class SplitSequence:
@@ -524,3 +530,59 @@ class TemporalShift:
                         events[shift:] = 0
             return events
 
+class SpatioTemporalCutout:
+    def __init__(self, t_cutout_size, h_cutout_size, w_cutout_size, fill_value=0):
+        """
+        Initialize the SpatioTemporalCutout transformation.
+
+        Args:
+            t_cutout_size (int): Số bins thời gian cần che khuất.
+            h_cutout_size (int): Chiều cao (pixel) của vùng che khuất.
+            w_cutout_size (int): Chiều rộng (pixel) của vùng che khuất.
+            fill_value: Giá trị để điền vào vùng bị che (mặc định là 0).
+        """
+        self.t_cutout_size = t_cutout_size
+        self.h_cutout_size = h_cutout_size
+        self.w_cutout_size = w_cutout_size
+        self.fill_value = fill_value
+
+    def __call__(self, voxel_grids):
+        """
+        Áp dụng spatio-temporal cutout lên batch voxel grids.
+
+        Args:
+            voxel_grids (numpy array): Một batch các voxel grids với shape
+                (batch_size, n_time_bins, H, W).
+
+        Returns:
+            numpy array: Voxel grids sau khi augment với cùng shape ban đầu.
+        """
+        # Tạo bản sao để không làm thay đổi dữ liệu gốc.
+        augmented = np.copy(voxel_grids)
+        batch_size, n_time_bins, H, W = augmented.shape
+        
+        for i in range(batch_size):
+            # Chọn vị trí bắt đầu theo chiều thời gian
+            if n_time_bins > self.t_cutout_size:
+                t_start = random.randint(0, n_time_bins - self.t_cutout_size)
+            else:
+                t_start = 0
+
+            # Chọn vị trí bắt đầu theo chiều cao
+            if H > self.h_cutout_size:
+                h_start = random.randint(0, H - self.h_cutout_size)
+            else:
+                h_start = 0
+
+            # Chọn vị trí bắt đầu theo chiều rộng
+            if W > self.w_cutout_size:
+                w_start = random.randint(0, W - self.w_cutout_size)
+            else:
+                w_start = 0
+
+            # Áp dụng cutout: che khuất khối đã chọn bằng giá trị fill_value
+            augmented[i,
+                      t_start:t_start+self.t_cutout_size,
+                      h_start:h_start+self.h_cutout_size,
+                      w_start:w_start+self.w_cutout_size] = self.fill_value
+        return augmented
