@@ -20,9 +20,10 @@ from model.ModelDemo import *
 from utils.training_utils import train_epoch, validate_epoch, top_k_checkpoints
 from utils.metrics import weighted_MSELoss
 from dataset import ThreeETplus_Eyetracking, ScaleLabel, NormalizeLabel, \
-    LabelTemporalSubsample, NormalizeLabel, SliceLongEventsToShort, \
-    EventSlicesToVoxelGrid, SliceByTimeEventsTargets, SpatialShift, EventCutout, SpatioTemporalCutout
+    LabelTemporalSubsample, NormalizeLabel, SliceLongEventsToShort,\
+    EventSlicesToVoxelGrid, SliceByTimeEventsTargets, SpatialShift, EventCutout
 import tonic.transforms as transforms
+from dataset.custom_transforms import SpatioTemporalCutout
 from tonic import SlicedDataset, DiskCachedDataset
 from tqdm import tqdm
 from rich.console import Console
