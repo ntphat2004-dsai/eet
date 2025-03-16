@@ -1,7 +1,10 @@
 {
     "device": "cpu",
     "data_dir": "./event_data",
-    "architecture": "CNN_GRU",
+    "architecture": "EfficientNetB0_unfreeze_BiGRU_MambaSSM",
+    "mlflow_path": "./mlruns",
+    "experiment_name": "trial_experiment",
+    "model_path": "./saved_models",
     "batch_size": 1,
     "spatial_factor": 0.125,
     "temporal_subsample_factor": 1,
