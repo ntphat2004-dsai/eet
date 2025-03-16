@@ -32,8 +32,8 @@ def main(args):
         raise ValueError("Please provide a JSON configuration file.")
 
     # also dump the args to a JSON file in MLflow artifact
-    with open(os.path.join(mlflow.get_artifact_uri(), "args.json"), 'w') as f:
-        json.dump(vars(args), f)
+    # with open(os.path.join(mlflow.get_artifact_uri(), "args.json"), 'w') as f:
+    #     json.dump(vars(args), f)
 
     # Define your model, optimizer, and criterion
     model = eval(args.architecture)(args).to(args.device)
