@@ -11,6 +11,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from model.BaselineEyeTrackingModel import CNN_GRU
 from model.ModelDemo import *
+from dataset.custom_transforms import SpatioTemporalCutout
 from dataset import ThreeETplus_Eyetracking, ScaleLabel, NormalizeLabel, \
     LabelTemporalSubsample, NormalizeLabel, SliceLongEventsToShort, \
     EventSlicesToVoxelGrid, SliceByTimeEventsTargets
@@ -127,12 +128,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
     # a config file 
-    parser.add_argument("--config_file", type=str, default='test_config', \
-                        help="path to JSON configuration file")
+    parser.add_argument("--config_file", type=str, default='test_config.json', \
+                    help="path to JSON configuration file")
     # load weights from a checkpoint
     parser.add_argument("--checkpoint", type=str, help="path to checkpoint")
     parser.add_argument("--output_path", type=str, default='./submission.csv')
-
-    args = parser.parse_args()
+    parser.add_argument("--architecture", type=str)
+    args = parser.parse_args()  
 
     main(args)
