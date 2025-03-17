@@ -22,7 +22,7 @@ class SelfAttention(nn.Module):
         # Tính attention score: (batch_size, seq_len, seq_len)
         scores = torch.bmm(Q, K.transpose(1, 2)) / (x.size(-1) ** 0.5)
         attn = self.softmax(scores)
-        out = torch.bmm(attn, V)
+        out = torch.bmm(attn, V) # Shape: 
         return out
 
 
@@ -155,7 +155,7 @@ class EfficientNetB0_BiGRU_MambaSSM(nn.Module):
         return x
 
 # ==================================================== #
-# ==================== Model Demo ==================== #
+# ========== EfficientNetBackbone_unfreeze =========== #
 # ==================================================== #
 class EfficientNetBackbone_unfreeze(nn.Module):
     def __init__(self, feature_dim=256, pretrained=True, freeze=True):
@@ -210,9 +210,9 @@ class EfficientNetBackbone_unfreeze(nn.Module):
             for param in child.parameters():
                 param.requires_grad = True
 
-# ====================================================
-# ==== EfficientNetB0_BiGRU_MambaSSM Model =========
-# ====================================================
+# ===================================================#
+# ==== EfficientNetB0_BiGRU_MambaSSM Model ==========#
+# ===================================================#
 class EfficientNetB0_unfreeze_BiGRU_MambaSSM(nn.Module):
     """ 
     Mô hình dự đoán tâm đồng tử sử dụng:
@@ -259,3 +259,5 @@ class EfficientNetB0_unfreeze_BiGRU_MambaSSM(nn.Module):
         Gọi hàm này sau vài epoch để unfreeze num_layers cuối cùng của backbone nhằm fine-tune.
         """
         self.backbone.unfreeze_layers(num_layers=num_layers)
+
+

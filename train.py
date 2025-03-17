@@ -243,8 +243,8 @@ def main(args):
         train_data = SlicedDataset(
             train_data_orig, 
             train_slicer, 
-            # transform=train_post_slicer_transform,
-            transform=post_slicer_transform,
+            transform=train_post_slicer_transform,
+            #transform=post_slicer_transform,
             metadata_path=f"./metadata/3et_train_tl_{args.train_length}_ts{args.train_stride}_ch{args.n_time_bins}")
         
         val_data = SlicedDataset(
