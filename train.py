@@ -31,6 +31,7 @@ from rich.table import Table
 from rich import print as rprint
 import torch.nn.utils as utils
 import random
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 console = Console()
 
 # Add this function to clean cached dataset
@@ -41,8 +42,10 @@ def clean_cached_dataset():
         print(f"Cleaned cached dataset directory: {cache_dir}")
     os.makedirs(cache_dir, exist_ok=True)
 
-def train(model, train_loader, val_loader, criterion, optimizer, args):
+def train(model, train_loader, val_loader, criterion, optimizer, scheduler, args):
     best_val_loss = float("inf")
+    # Create Scheduler
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
     # Training loop
     for epoch in range(args.num_epochs):
@@ -100,6 +103,7 @@ def train(model, train_loader, val_loader, criterion, optimizer, args):
             mlflow.log_metrics(val_metrics['val_p_acc_all'], step=epoch)
             mlflow.log_metrics(val_metrics['val_p_euc_error_all'], step=epoch)
 
+            scheduler.step(val_loss)
         # Print the metrics table
         console.print(table)
 
@@ -139,7 +143,23 @@ def main(args):
 
         # Define your model, optimizer, and criterion
         model = eval(args.architecture)(args).to(args.device)
-        optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4) # Decay learning rate
+
+        optimizer = optim.Adam(
+            model.parameters(), 
+            lr=args.lr, 
+            weight_decay=1e-4, # Decay learning rate
+            eps=1e-8,
+            amsgrad=True
+        )
+
+        # Khởi tạo ReduceLROnPlateau scheduler
+        scheduler = ReduceLROnPlateau(
+            optimizer, 
+            mode='min', 
+            factor=0.1, 
+            patience=5, 
+            verbose=True
+        )
 
         if args.loss == "mse":
             criterion = nn.MSELoss()
