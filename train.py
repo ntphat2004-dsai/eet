@@ -248,9 +248,9 @@ def main(args):
             #     cutout_height=10, 
             #     sensor_size=(args.sensor_width*factor, args.sensor_height*factor)),
             SpatioTemporalCutout(
-                t_cutout_size=2, 
-                h_cutout_size=10, 
-                w_cutout_size=10
+                t_cutout_size=3, 
+                h_cutout_size=15, 
+                w_cutout_size=15
             )
         ]) 
 
