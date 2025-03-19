@@ -5,8 +5,8 @@ import torch.nn.utils as utils
 
 def train_epoch(model, pbar, criterion, optimizer, args):
     model.train()
-    model.to(args.device)  # THÊM
-    criterion = criterion.to(args.device)  # THÊM
+    model.to(args.device)  # ADD
+    criterion = criterion.to(args.device)  # ADD
 
     running_loss = 0.0
     total_p_corr_all = {f'p{p}_all':0 for p in args.pixel_tolerances}
@@ -17,18 +17,18 @@ def train_epoch(model, pbar, criterion, optimizer, args):
         optimizer.zero_grad()
         inputs, targets = batch
         outputs = model(inputs.to(args.device))
-        #taking only the last frame's label, and first two dim are coordinate, last is open or close so discarded
+        # Taking only the last frame's label, and the first two dimensions are coordinates, the last is open or closed, so it is discarded
         targets = targets.to(args.device)
         loss = criterion(outputs, targets[:,:, :2]) 
         loss.backward()
         
-        # Tính norm trước khi clipping
+        # Calculate norm before clipping
         total_norm_before = torch.norm(torch.stack([p.grad.norm() for p in model.parameters() if p.grad is not None]))
         
         # Clipping
         utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         
-        # Tính norm sau khi clipping
+        # Calculate norm after clipping
         total_norm_after = torch.norm(torch.stack([p.grad.norm() for p in model.parameters() if p.grad is not None]))
 
         print(f"Before Clipping: {total_norm_before:.4f} | After Clipping: {total_norm_after:.4f}")
@@ -36,7 +36,7 @@ def train_epoch(model, pbar, criterion, optimizer, args):
         optimizer.step()
         running_loss += loss.item()
 
-        # calculate pixel tolerated accuracy
+        # Calculate pixel-tolerated accuracy
         p_corr, batch_size = p_acc(targets[:, :, :2], outputs[:, :, :], \
                                 width_scale=args.sensor_width*args.spatial_factor, \
                                 height_scale=args.sensor_height*args.spatial_factor, \
@@ -44,7 +44,7 @@ def train_epoch(model, pbar, criterion, optimizer, args):
         total_p_corr_all = {f'p{k}_all': (total_p_corr_all[f'p{k}_all'] + p_corr[f'p{k}']).item() for k in args.pixel_tolerances}
         total_samples_all += batch_size
 
-        # calculate averaged euclidean distance
+        # Calculate averaged Euclidean distance
         p_euc_error_total, bs_times_seqlen = px_euclidean_dist(targets[:, :, :], outputs[:, :, :], \
                                 width_scale=args.sensor_width*args.spatial_factor, \
                                 height_scale=args.sensor_height*args.spatial_factor)
@@ -62,8 +62,8 @@ def train_epoch(model, pbar, criterion, optimizer, args):
 
 def validate_epoch(model, pbar, criterion, args):
     model.eval()
-    model.to(args.device)  # THÊM
-    criterion = criterion.to(args.device)  # THÊM
+    model.to(args.device)  # ADD
+    criterion = criterion.to(args.device)  # ADD
     
     running_loss = 0.0
     total_p_corr_all = {f'p{p}_all':0 for p in args.pixel_tolerances}
@@ -77,7 +77,7 @@ def validate_epoch(model, pbar, criterion, args):
             loss = criterion(outputs, targets[:,:, :2]) 
             running_loss += loss.item()
 
-            # calculate pixel tolerated accuracy
+            # Calculate pixel-tolerated accuracy
             p_corr, batch_size = p_acc(targets[:, :, :2], outputs[:, :, :], \
                                     width_scale=args.sensor_width*args.spatial_factor, \
                                     height_scale=args.sensor_height*args.spatial_factor, \
@@ -85,7 +85,7 @@ def validate_epoch(model, pbar, criterion, args):
             total_p_corr_all = {f'p{k}_all': (total_p_corr_all[f'p{k}_all'] + p_corr[f'p{k}']).item() for k in args.pixel_tolerances}
             total_samples_all += batch_size
 
-            # calculate averaged euclidean distance
+            # Calculate averaged Euclidean distance
             p_euc_error_total, bs_times_seqlen = px_euclidean_dist(targets[:, :, :], outputs[:, :, :], \
                                     width_scale=args.sensor_width*args.spatial_factor, \
                                     height_scale=args.sensor_height*args.spatial_factor)
@@ -103,15 +103,15 @@ def validate_epoch(model, pbar, criterion, args):
 
 def top_k_checkpoints(args, artifact_uri):
     """
-    only save the top k model checkpoints with the lowest validation loss.
+    Only save the top k model checkpoints with the lowest validation loss.
     """
-    # list all files ends with .pth in artifact_uri
+    # List all files ending with .pth in artifact_uri
     model_checkpoints = [f for f in os.listdir(artifact_uri) if f.endswith(".pth")]
 
-    # but only save at most args.save_k_best models checkpoints
+    # Only save at most args.save_k_best model checkpoints
     if len(model_checkpoints) > args.save_k_best:
-        # sort all model checkpoints by validation loss in ascending order
+        # Sort all model checkpoints by validation loss in ascending order
         model_checkpoints = sorted([f for f in os.listdir(artifact_uri) if f.startswith("model_best_ep")], \
                                     key=lambda x: float(x.split("_")[-1][:-4]))
-        # delete the model checkpoint with the largest validation loss
+        # Delete the model checkpoint with the largest validation loss
         os.remove(os.path.join(artifact_uri, model_checkpoints[-1]))

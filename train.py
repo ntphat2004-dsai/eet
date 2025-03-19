@@ -49,11 +49,11 @@ def train(model, train_loader, val_loader, criterion, optimizer, args):
 
     # Training loop
     for epoch in range(args.num_epochs):
-        # Nếu đã đến epoch unfreeze, hãy unfreeze một số tầng của backbone để fine-tune
+        # If the unfreeze epoch is reached, unfreeze some layers of the backbone for fine-tuning
         if epoch == args.unfreeze_epoch:
             if args.unfreeze_layers == 0:
                 continue
-            
+
             model.unfreeze_backbone(num_layers=args.unfreeze_layers)
             print(f"\n===== Unfreezing the last {args.unfreeze_layers} layers of the backbone at epoch {epoch+1} ===\n")
 
@@ -155,7 +155,7 @@ def main(args):
             amsgrad=True
         )
 
-        # Khởi tạo ReduceLROnPlateau scheduler
+        # Initialize ReduceLROnPlateau scheduler
         scheduler = ReduceLROnPlateau(
             optimizer, 
             mode='min', 
@@ -240,7 +240,7 @@ def main(args):
 
         ])
 
-        # Augmentation cho training
+        # Augmentation for training
         train_transform = transforms.Compose([
             # SpatialShift(
             #     max_shift_x=10, 
