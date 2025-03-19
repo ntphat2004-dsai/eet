@@ -42,7 +42,7 @@ def clean_cached_dataset():
         print(f"Cleaned cached dataset directory: {cache_dir}")
     os.makedirs(cache_dir, exist_ok=True)
 
-def train(model, train_loader, val_loader, criterion, optimizer, scheduler, args):
+def train(model, train_loader, val_loader, criterion, optimizer, args):
     best_val_loss = float("inf")
     # Create Scheduler
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
