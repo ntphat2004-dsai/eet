@@ -51,6 +51,9 @@ def train(model, train_loader, val_loader, criterion, optimizer, args):
     for epoch in range(args.num_epochs):
         # Nếu đã đến epoch unfreeze, hãy unfreeze một số tầng của backbone để fine-tune
         if epoch == args.unfreeze_epoch:
+            if args.unfreeze_layers == 0:
+                continue
+            
             model.unfreeze_backbone(num_layers=args.unfreeze_layers)
             print(f"\n===== Unfreezing the last {args.unfreeze_layers} layers of the backbone at epoch {epoch+1} ===\n")
 

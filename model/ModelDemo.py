@@ -261,3 +261,81 @@ class EfficientNetB0_unfreeze_BiGRU_MambaSSM(nn.Module):
         self.backbone.unfreeze_layers(num_layers=num_layers)
 
 
+# ==================================================== #
+# EfficientNetB0_unfreeze_BiGRU_AttentionConv_MambaSSM #
+# ===================================================- #
+class EfficientNetB0_unfreeze_BiGRU_AttentionConv_MambaSSM(nn.Module):
+    def __init__(self, args, feature_dim=256, mamba_hidden_dim=256, seq_len=10, gru_hidden_size=128, num_attention_heads=4):
+        super(EfficientNetB0_unfreeze_BiGRU_AttentionConv_MambaSSM, self).__init__()
+        self.args = args
+        
+        # Backbone: trích xuất đặc trưng từ ảnh
+        self.backbone = EfficientNetBackbone_unfreeze(feature_dim=feature_dim, pretrained=True)
+        
+        # GRU song hướng, nhận đầu vào có kích thước feature_dim
+        self.bigru = nn.GRU(
+            input_size=feature_dim, 
+            hidden_size=gru_hidden_size, 
+            num_layers=1, 
+            bidirectional=True, 
+            batch_first=True
+        )
+        
+        # Multi-head Self-Attention: 
+        # embed_dim = gru_hidden_size * 2 vì GRU song hướng
+        self.attention = nn.MultiheadAttention(
+            embed_dim=gru_hidden_size*2, 
+            num_heads=num_attention_heads, 
+            batch_first=True
+        )
+        
+        # Convolutional block 1D: khai thác đặc trưng cục bộ theo trục thời gian
+        self.conv1d = nn.Sequential(
+            nn.Conv1d(in_channels=gru_hidden_size*2, out_channels=gru_hidden_size*2, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv1d(in_channels=gru_hidden_size*2, out_channels=gru_hidden_size*2, kernel_size=3, padding=1),
+            nn.ReLU()
+        )
+        
+        # MambaSSM xử lý chuỗi thời gian
+        self.mamba = MambaSSM(input_dim=gru_hidden_size*2, hidden_dim=mamba_hidden_dim, seq_len=seq_len)
+        self.dropout = nn.Dropout(0.2)
+        self.fc = nn.Linear(mamba_hidden_dim, 2)
+
+    def forward(self, x):
+        """
+        x: (batch_size, seq_len, channels, height, width)
+        """
+        batch_size, seq_len, channels, height, width = x.shape
+        
+        # Backbone: xử lý từng frame
+        x = x.view(batch_size * seq_len, channels, height, width)
+        x = self.backbone(x)  # (batch_size * seq_len, feature_dim)
+        x = x.view(batch_size, seq_len, -1)  # (batch_size, seq_len, feature_dim)
+        
+        # GRU: xử lý chuỗi
+        gru_out, _ = self.bigru(x)  # (batch_size, seq_len, gru_hidden_size*2)
+        
+        # Attention: sử dụng GRU output làm query, key, value
+        attn_out, _ = self.attention(gru_out, gru_out, gru_out)
+        gru_attn = gru_out + attn_out  # Residual connection
+        
+        # Convolutional block: cần chuyển đổi tensor cho Conv1d
+        conv_in = gru_attn.transpose(1, 2)  # (batch_size, features, seq_len)
+        conv_out = self.conv1d(conv_in)
+        conv_out = conv_out.transpose(1, 2)  # (batch_size, seq_len, features)
+        
+        # Kết hợp kết quả của GRU+Attention và Conv1d (ví dụ: cộng lại)
+        combined = gru_attn + conv_out
+        
+        # Xử lý qua MambaSSM và dự đoán đầu ra
+        mamba_out = self.mamba(combined)  # (batch_size, seq_len, mamba_hidden_dim)
+        mamba_out = self.dropout(mamba_out)
+        output = self.fc(mamba_out)       # (batch_size, seq_len, 2)
+        return output
+
+    def unfreeze_backbone(self, num_layers=1):
+        """
+        Gọi hàm này sau vài epoch để unfreeze num_layers cuối cùng của backbone nhằm fine-tune.
+        """
+        self.backbone.unfreeze_layers(num_layers=num_layers)
