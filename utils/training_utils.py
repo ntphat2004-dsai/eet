@@ -26,7 +26,7 @@ def train_epoch(model, pbar, criterion, optimizer, args):
         total_norm_before = torch.norm(torch.stack([p.grad.norm() for p in model.parameters() if p.grad is not None]))
         
         # Clipping
-        utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        utils.clip_grad_norm_(model.parameters(), max_norm=2.5)
         
         # Calculate norm after clipping
         total_norm_after = torch.norm(torch.stack([p.grad.norm() for p in model.parameters() if p.grad is not None]))

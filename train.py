@@ -44,8 +44,15 @@ def clean_cached_dataset():
 
 def train(model, train_loader, val_loader, criterion, optimizer, args):
     best_val_loss = float("inf")
+    
     # Create Scheduler
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
+    scheduler = ReduceLROnPlateau(
+        optimizer, 
+        mode='min', 
+        factor=0.1, 
+        patience=5, 
+        verbose=True
+    )
 
     # Training loop
     for epoch in range(args.num_epochs):
@@ -153,15 +160,6 @@ def main(args):
             weight_decay=1e-4, # Decay learning rate
             eps=1e-8,
             amsgrad=True
-        )
-
-        # Initialize ReduceLROnPlateau scheduler
-        scheduler = ReduceLROnPlateau(
-            optimizer, 
-            mode='min', 
-            factor=0.1, 
-            patience=5, 
-            verbose=True
         )
 
         if args.loss == "mse":
