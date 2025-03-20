@@ -200,15 +200,36 @@ class EfficientNetBackbone_unfreeze(nn.Module):
         out = self.act(out)
         return out
 
-    def unfreeze_layers(self, num_layers=1):
+    def unfreeze_layers(self, num_layers=1, order=None):
         """
-        Unfreeze the last num_layers of the backbone (self.features is nn.Sequential).
-        For example: if num_layers=2, the last 2 blocks will be unfrozen.
+        Unfreeze layers of the backbone (self.features is nn.Sequential) based on the order.
+        
+        - order == 'intermediate': unfreeze the layers from the bottom, excluding the very last layer.
+        - order == 'last': unfreeze the last layer.
         """
         children = list(self.features.children())
-        for child in children[-num_layers:]:
-            for param in child.parameters():
+
+        if order == 'intermediate':
+            # Unfreeze layers from -num_layers to the one before the last layer.
+            for child in children[-num_layers:-1]:
+                for param in child.parameters():
+                    param.requires_grad = True
+            print(f"Unfroze intermediate layers: {children[-num_layers:-1]}")
+            
+        elif order == 'last':
+            # Unfreeze only the last layer.
+            last_layer = children[-1]
+            for param in last_layer.parameters():
                 param.requires_grad = True
+            print(f"Unfroze last layer: {last_layer}")
+            
+        else:
+            # Mặc định: unfreeze last num_layers layers.
+            for child in children[-num_layers:]:
+                for param in child.parameters():
+                    param.requires_grad = True
+            print(f"Unfroze last {num_layers} layers (default).")
+
 
 
 # ==================================================== #
@@ -284,8 +305,8 @@ class EfficientNetB0_unfreeze_BiGRU_AttentionConv_MambaSSM(nn.Module):
         output = self.fc(mamba_out)       # (batch_size, seq_len, 2)
         return output
 
-    def unfreeze_backbone(self, num_layers=1):
+    def unfreeze_backbone(self, num_layers=1, order=None):
         """
         Call this method after a few epochs to unfreeze the last num_layers of the backbone for fine-tuning.
         """
-        self.backbone.unfreeze_layers(num_layers=num_layers)
+        self.backbone.unfreeze_layers(num_layers=num_layers, order=order)

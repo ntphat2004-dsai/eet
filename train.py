@@ -44,7 +44,7 @@ def clean_cached_dataset():
 
 def train(model, train_loader, val_loader, criterion, optimizer, args):
     best_val_loss = float("inf")
-    
+
     # Create Scheduler
     scheduler = ReduceLROnPlateau(
         optimizer, 
@@ -56,13 +56,16 @@ def train(model, train_loader, val_loader, criterion, optimizer, args):
 
     # Training loop
     for epoch in range(args.num_epochs):
-        # If the unfreeze epoch is reached, unfreeze some layers of the backbone for fine-tuning
-        if epoch == args.unfreeze_epoch:
-            if args.unfreeze_layers == 0:
-                continue
+        if epoch == args.unfreeze_start_epoch:
+            if args.unfreeze_layers != 0:
+                model.unfreeze_backbone(num_layers=args.unfreeze_layers, order='intermediate')
+                print(f"[Epoch {epoch+1}] Unfroze intermediate layers.")
+                
 
-            model.unfreeze_backbone(num_layers=args.unfreeze_layers)
-            print(f"\n===== Unfreezing the last {args.unfreeze_layers} layers of the backbone at epoch {epoch+1} ===\n")
+        elif epoch == args.unfreeze_last_epoch:
+            if args.unfreeze_layers != 0:
+                model.unfreeze_backbone(num_layers=args.unfreeze_layers, order='last')
+                print(f"\n===== Unfreezing the last {args.unfreeze_layers} layers of the backbone at epoch {epoch+1} ===\n")
 
         # Add progress bar for training
         train_pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{args.num_epochs}', leave=True)
@@ -165,8 +168,10 @@ def main(args):
         if args.loss == "mse":
             criterion = nn.MSELoss()
         elif args.loss == "weighted_mse":
-            criterion = weighted_MSELoss(weights=torch.tensor((args.sensor_width/args.sensor_height, 1)).to(args.device), \
-                                         reduction='mean')
+            criterion = weighted_MSELoss(
+                weights=torch.tensor((args.sensor_width/args.sensor_height, 1)).to(args.device),
+                reduction='mean'
+            )
         else:
             raise ValueError("Invalid loss name")
 
@@ -313,7 +318,8 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, help="learning rate")
     parser.add_argument("--num_epochs", type=int, help="number of epochs")
     parser.add_argument("--unfreeze_layers", type=int, help="unfreeze some last layers of the backbone")
-    parser.add_argument("--unfreeze_epoch", type=int, help="epoch to unfreeze the backbone")
+    parser.add_argument("--unfreeze_start_epoch", type=int, help="first reach epoch to unfreeze the backbone")
+    parser.add_argument("--unfreeze_last_epoch", type=int, help="last reach epoch to unfreeze the backbone")
 
     
     args = parser.parse_args()
