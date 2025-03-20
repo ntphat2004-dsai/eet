@@ -244,33 +244,33 @@ def main(args):
         ])
 
         # Augmentation for training
-        train_transform = transforms.Compose([
-            # SpatialShift(
-            #     max_shift_x=10, 
-            #     max_shift_y=10, 
-            #     sensor_size=(args.sensor_width*factor, args.sensor_height*factor)),
-            # EventCutout(
-            #     cutout_width=10, 
-            #     cutout_height=10, 
-            #     sensor_size=(args.sensor_width*factor, args.sensor_height*factor)),
-            SpatioTemporalCutout(
-                t_cutout_size=3, 
-                h_cutout_size=15, 
-                w_cutout_size=15
-            )
-        ]) 
+        # train_transform = transforms.Compose([
+        #     # SpatialShift(
+        #     #     max_shift_x=10, 
+        #     #     max_shift_y=10, 
+        #     #     sensor_size=(args.sensor_width*factor, args.sensor_height*factor)),
+        #     # EventCutout(
+        #     #     cutout_width=10, 
+        #     #     cutout_height=10, 
+        #     #     sensor_size=(args.sensor_width*factor, args.sensor_height*factor)),
+        #     SpatioTemporalCutout(
+        #         t_cutout_size=3, 
+        #         h_cutout_size=15, 
+        #         w_cutout_size=15
+        #     )
+        # ]) 
 
         # Combine transforms 
-        train_post_slicer_transform = transforms.Compose(
-            post_slicer_transform.transforms + train_transform.transforms
-        )
+        # train_post_slicer_transform = transforms.Compose(
+        #     post_slicer_transform.transforms + train_transform.transforms
+        # )
 
         # We use the Tonic SlicedDataset class to handle the collation of the sub-sequences into batches.
         train_data = SlicedDataset(
             train_data_orig, 
             train_slicer, 
-            transform=train_post_slicer_transform,
-            #transform=post_slicer_transform,
+            # transform=train_post_slicer_transform,
+            transform=post_slicer_transform,
             metadata_path=f"./metadata/3et_train_tl_{args.train_length}_ts{args.train_stride}_ch{args.n_time_bins}")
         
         val_data = SlicedDataset(
